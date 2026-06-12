@@ -1,0 +1,6 @@
+{
+  "name": "SIKLIN-RS",
+  "description": "Sistem Informasi Indikator Kesehatan Lingkungan Rumah Sakit",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
