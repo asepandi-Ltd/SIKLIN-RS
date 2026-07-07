@@ -1,54 +1,107 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import Link from "next/link";
+import { useAppStore, User } from "@/lib/store";
+import { 
+  Eye, 
+  EyeOff, 
+  Lock, 
+  Mail, 
+  ShieldCheck, 
+  Activity, 
+  ArrowRight,
+  UserCheck,
+  Building
+} from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
+  const { users, setCurrentUser, currentUser, initializeSupabase } = useAppStore();
+  
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    initializeSupabase();
+    // If already logged in, redirect
+    if (currentUser) {
+      router.push("/dashboard");
+    }
+  }, [currentUser, router, initializeSupabase]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username || !password) return;
+    if (!email) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Input Diperlukan',
+        text: 'Email wajib diisi!',
+        confirmButtonColor: '#00A8A8',
+      });
+      return;
+    }
+    if (!password) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Input Diperlukan',
+        text: 'Password wajib diisi!',
+        confirmButtonColor: '#00A8A8',
+      });
+      return;
+    }
 
     setLoading(true);
     
     try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Simulate database lookup latency
+      await new Promise(resolve => setTimeout(resolve, 850));
 
-      if (username === "fitriwul" && password === "12345") {
+      // 1. Try to find user in our store users list
+      // For convenience of testing, we accept standard passwords
+      const matchedUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+      if (matchedUser && password === "123456") {
+        // Successful login
+        setCurrentUser(matchedUser);
+
+        // Store mock session token
         try {
-          // Try to set dummy cookie to pass middleware (might throw in some iframe environments)
           document.cookie = "sb-mock-auth-token=true; path=/";
-        } catch (e) {
-          console.warn("Could not set cookie, continuing anyway", e);
+          localStorage.setItem("sipakar_auth", "true");
+        } catch (cookieError) {
+          console.warn("Cookies are restricted in this environment", cookieError);
         }
-        
-        // Also set localStorage as fallback for client-side auth
-        try {
-          localStorage.setItem("siklin_auth", "true");
-        } catch (e) {
-          console.warn("Could not set localStorage", e);
-        }
-        
+
         await Swal.fire({
           icon: 'success',
           title: 'Login Berhasil',
+          text: `Selamat datang kembali, ${matchedUser.nama}!`,
           showConfirmButton: false,
-          timer: 1000,
+          timer: 1200,
         });
-        
-        window.location.href = "/dashboard";
+
+        router.push("/dashboard");
       } else {
+        // Fallback for special default test credentials
+        if (email === 'admin@sipakar.id' && password === 'admin') {
+          const defaultAdmin = users.find(u => u.role === 'Super Admin') || users[0];
+          setCurrentUser(defaultAdmin);
+          router.push("/dashboard");
+          return;
+        }
+
         Swal.fire({
           icon: 'error',
           title: 'Login Gagal',
-          text: 'Username atau password tidak valid.',
+          text: 'Kredensial tidak valid. Silakan gunakan salah satu Akun Simulasi di bawah untuk menguji aplikasi dengan cepat.',
           confirmButtonColor: '#00A8A8',
         });
       }
@@ -57,7 +110,7 @@ export default function LoginPage() {
       Swal.fire({
         icon: 'error',
         title: 'Error',
-        text: 'Terjadi kesalahan sistem.',
+        text: 'Terjadi kesalahan pada sistem.',
         confirmButtonColor: '#00A8A8',
       });
     } finally {
@@ -65,58 +118,215 @@ export default function LoginPage() {
     }
   };
 
+  // Quick select helper to make testing role-based features extremely easy
+  const selectSimulatedAccount = (user: User) => {
+    setEmail(user.email);
+    setPassword("123456");
+    
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'info',
+      title: `Mengisi kredensial: ${user.role}`,
+      showConfirmButton: false,
+      timer: 1500
+    });
+  };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-        <div className="p-8 sm:p-10">
-          <div className="flex flex-col items-center mb-8">
-            <Link href="/" className="bg-[#00A8A8] p-3 rounded-lg shadow-md mb-4 inline-block hover:scale-105 transition-transform">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-            </Link>
-            <h2 className="text-2xl font-bold text-gray-800">Login SIKLIN-RS</h2>
-            <p className="text-gray-500 text-xs uppercase tracking-wider mt-2 text-center font-bold">
-              Kredensial Akses
+    <div className="min-h-screen bg-slate-950 flex flex-col md:flex-row font-sans text-slate-100">
+      
+      {/* Brand Column (Left) */}
+      <div className="flex-1 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 p-8 flex flex-col justify-between relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-teal-950/20 via-slate-900 to-slate-900 -z-10" />
+        <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-teal-500/5 rounded-full blur-3xl" />
+
+        {/* Header brand */}
+        <Link href="/" className="flex items-center space-x-3 self-start hover:opacity-90 transition-opacity">
+          <div className="bg-gradient-to-tr from-teal-500 to-emerald-500 p-2 rounded-lg text-slate-950 font-bold">
+            <Activity className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">
+              SIPAKAR
+            </h1>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">RSUD Al-Mulk</p>
+          </div>
+        </Link>
+
+        {/* Feature info */}
+        <div className="my-12 md:my-auto space-y-6 max-w-md">
+          <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-teal-950/40 border border-teal-800/40 rounded-full text-[11px] text-teal-400 font-bold">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Aman, Akuntabel & Terintegrasi</span>
+          </div>
+
+          <h2 className="text-3xl md:text-4xl font-black text-white leading-tight">
+            Pemantauan Capaian KPI Penunjang Rumah Sakit
+          </h2>
+          
+          <p className="text-slate-400 text-sm leading-relaxed">
+            Gunakan portal ini untuk melaporkan capaian indikator, memantau tindak lanjut supervisi klinis/operasional, serta mengevaluasi kepatuhan pelaporan unit seksi penunjang medis & non-medis.
+          </p>
+
+          <div className="space-y-3 pt-2 text-xs text-slate-400">
+            <div className="flex items-center space-x-2.5">
+              <span className="w-1.5 h-1.5 bg-teal-400 rounded-full" />
+              <span>Proteksi Data dengan Supabase Auth & RLS</span>
+            </div>
+            <div className="flex items-center space-x-2.5">
+              <span className="w-1.5 h-1.5 bg-teal-400 rounded-full" />
+              <span>Kalkulasi Otomatis Persentase Capaian KPI</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer brand */}
+        <div className="text-xs text-slate-500">
+          © {new Date().getFullYear()} RSUD Al-Mulk &bull; Subdivisi Pelaporan Kinerja.
+        </div>
+      </div>
+
+      {/* Form Column (Right) */}
+      <div className="flex-1 p-8 sm:p-12 lg:p-16 flex flex-col justify-center bg-slate-950">
+        <div className="max-w-md w-full mx-auto space-y-8">
+          <div>
+            <h3 className="text-2xl font-extrabold text-white">Masuk ke Portal</h3>
+            <p className="text-slate-400 text-xs mt-1 uppercase tracking-wider font-semibold">
+              Sistem Pelaporan Kinerja Seksi Penunjang
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
-                Username
+          {/* Form */}
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Alamat Email
               </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="block w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00A8A8] focus:border-transparent transition-all"
-                placeholder="Masukkan username"
-              />
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500">
+                  <Mail className="w-4 h-4" />
+                </span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full pl-10 pr-4 py-3 bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                  placeholder="nama@rsudalmulk.id"
+                />
+              </div>
             </div>
 
-            <div>
-              <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
                   Password
                 </label>
-                <a href="#" className="text-xs font-bold text-[#00A8A8] hover:text-[#008f8f]">Lupa Password?</a>
+                <a href="#" onClick={(e) => {
+                  e.preventDefault();
+                  Swal.fire({
+                    title: 'Lupa Password?',
+                    text: 'Silakan hubungi Unit IT RSUD Al-Mulk (Super Admin) untuk mereset kata sandi Anda.',
+                    icon: 'info',
+                    confirmButtonColor: '#00A8A8'
+                  });
+                }} className="text-xs font-bold text-teal-400 hover:text-teal-300 transition-colors">
+                  Lupa Password?
+                </a>
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="block w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#00A8A8] focus:border-transparent transition-all"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-500">
+                  <Lock className="w-4 h-4" />
+                </span>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="block w-full pl-10 pr-10 py-3 bg-slate-900 border border-slate-800 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center space-x-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="rounded bg-slate-900 border-slate-800 text-teal-500 focus:ring-0 focus:ring-offset-0 w-4 h-4"
+                />
+                <span className="text-xs text-slate-400 font-semibold">Ingat Saya</span>
+              </label>
+              
+              <span className="text-xs text-slate-500">Default Pass: <strong className="text-slate-300">123456</strong></span>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold uppercase tracking-wider text-white bg-[#00A8A8] hover:bg-[#008f8f] focus:outline-none transition-all disabled:opacity-70"
+              className="w-full flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-black rounded-xl shadow-lg shadow-teal-500/10 transition-all text-sm uppercase tracking-wider disabled:opacity-50"
             >
-              {loading ? "Authenticating..." : "Login Aplikasi"}
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-slate-950"></div>
+                  <span>Memeriksa Akun...</span>
+                </>
+              ) : (
+                <>
+                  <span>Masuk Aplikasi</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </form>
+
+          {/* Quick Access simulated account panel */}
+          <div className="pt-6 border-t border-slate-800 space-y-3">
+            <div>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-1">
+                <UserCheck className="w-3.5 h-3.5 text-teal-400" />
+                <span>Klik untuk Memilih Akun Simulasi</span>
+              </h4>
+              <p className="text-[10px] text-slate-500 mt-0.5">SIPAKAR mengizinkan pengujian akses sesuai peran dengan mudah:</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {users.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => selectSimulatedAccount(u)}
+                  className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-lg text-left text-xs transition-all flex flex-col justify-between group active:scale-95"
+                  type="button"
+                >
+                  <span className="font-extrabold text-white text-[11px] truncate group-hover:text-teal-400 transition-colors">
+                    {u.nama}
+                  </span>
+                  <div className="flex items-center justify-between mt-1 text-[9px] font-bold text-slate-400">
+                    <span className="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded uppercase">
+                      {u.role}
+                    </span>
+                    {u.unit && <span className="truncate max-w-[50px]">{u.unit}</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </div>
