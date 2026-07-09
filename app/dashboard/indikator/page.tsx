@@ -310,7 +310,7 @@ export default function ProfilIndikatorPage() {
     `).join("");
 
     printWindow.document.write(`
-      <html>
+      <html lang="id">
         <head>
           <title>Master KPI Seksi Penunjang - RSUD Al-Mulk</title>
           <style>

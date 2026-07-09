@@ -155,7 +155,7 @@ export function Sidebar({ isOpen, setIsOpen, isMobile }: SidebarProps) {
         {/* Scrollable Navigation Items */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname && pathname.startsWith(item.href));
             const allowed = isAllowed(item.roles);
 
             return (

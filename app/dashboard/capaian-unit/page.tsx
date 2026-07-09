@@ -11,10 +11,9 @@ const months = [
 ];
 
 export default function CapaianUnitPage() {
-  const { indikatorList, capaianList, currentUser } = useAppStore();
+  const { indikatorList, capaianList, currentUser, updateIndikator } = useAppStore();
   const [selectedUnit, setSelectedUnit] = useState<string>("");
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
-  const [multipliers, setMultipliers] = useState<Record<string, number>>({});
   
   // Extract unique units
   const units = Array.from(new Set(indikatorList.map(i => i.unit))).sort();
@@ -25,21 +24,10 @@ export default function CapaianUnitPage() {
     }
   }, [currentUser]);
 
-  // Load multipliers from local storage
-  useEffect(() => {
-    const saved = localStorage.getItem("sipak_multipliers");
-    if (saved) {
-      try {
-        setMultipliers(JSON.parse(saved));
-      } catch (e) {}
-    }
-  }, []);
-
   const handleMultiplierChange = (indikatorId: string, value: string) => {
     const num = parseFloat(value);
-    const newMultipliers = { ...multipliers, [indikatorId]: isNaN(num) ? 0 : num };
-    setMultipliers(newMultipliers);
-    localStorage.setItem("sipak_multipliers", JSON.stringify(newMultipliers));
+    const safeNum = isNaN(num) ? 0 : num;
+    updateIndikator(indikatorId, { bobot: safeNum });
   };
 
   const filteredIndikators = indikatorList.filter(i => i.unit === selectedUnit);
@@ -139,7 +127,7 @@ export default function CapaianUnitPage() {
                     return skor;
                   });
 
-                  const pengali = multipliers[ind.id] || 0;
+                  const pengali = ind.bobot !== undefined ? ind.bobot : 0;
                   const hasilKinerja = totalSkor * pengali;
                   totalKinerjaUnit += hasilKinerja;
 
@@ -173,7 +161,7 @@ export default function CapaianUnitPage() {
                         <input
                           type="number"
                           step="0.01"
-                          value={multipliers[ind.id] !== undefined ? multipliers[ind.id] : ""}
+                          value={ind.bobot !== undefined ? ind.bobot : ""}
                           onChange={(e) => handleMultiplierChange(ind.id, e.target.value)}
                           className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-center text-sm font-semibold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
                           placeholder="0"

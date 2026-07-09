@@ -40,16 +40,9 @@ export default function DashboardPage() {
   const [selectedBulan, setSelectedBulan] = useState(3); // March (seeded latest)
   const [selectedTahun, setSelectedTahun] = useState(2026);
   const [expandedUnit, setExpandedUnit] = useState<string | null>(null);
-  const [multipliers, setMultipliers] = useState<Record<string, number>>({});
 
   useEffect(() => {
     setMounted(true);
-    const saved = localStorage.getItem("sipak_multipliers");
-    if (saved) {
-      try {
-        setMultipliers(JSON.parse(saved));
-      } catch (e) {}
-    }
   }, []);
 
   if (!mounted) {
@@ -130,7 +123,7 @@ export default function DashboardPage() {
         );
         totalSkor += capaian?.nilai || 0;
       }
-      const pengali = multipliers[ind.id] || 0;
+      const pengali = ind.bobot !== undefined ? ind.bobot : 0;
       totalKinerjaUnit += totalSkor * pengali;
     });
 

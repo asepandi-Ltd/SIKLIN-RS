@@ -223,7 +223,7 @@ export default function LaporanPage() {
     }).join("");
 
     printWindow.document.write(`
-      <html>
+      <html lang="id">
         <head>
           <title>Laporan Akuntabilitas Kinerja Seksi Penunjang - RSUD Al-Mulk</title>
           <style>

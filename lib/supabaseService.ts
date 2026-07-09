@@ -27,9 +27,24 @@ export const isSupabaseConfigured = (): boolean => {
 
 // Centralized DB error logger - logged quietly to prevent automated test failures
 export const logDbError = (context: string, error: any) => {
-  if (error) {
-    const message = error.message || error.details || error.hint || JSON.stringify(error);
-    console.log(`Supabase Sync: Handled log for ${context}`);
+  try {
+    if (error) {
+      const code = error.code || 'N/A';
+      const message = error.message || 'N/A';
+      const details = error.details || 'N/A';
+      const hint = error.hint || 'N/A';
+
+      console.error(`[Supabase Error Detail] Context: ${context}`);
+      console.error(`- Code: ${code}`);
+      console.error(`- Message: ${message}`);
+      console.error(`- Details: ${details}`);
+      console.error(`- Hint: ${hint}`);
+      console.error(`- Raw Error:`, error);
+
+      console.log(`Supabase Sync: Handled log for ${context}`);
+    }
+  } catch (err) {
+    console.error('Fatal logger error in logDbError helper:', err);
   }
 };
 
@@ -56,24 +71,86 @@ export async function dbGetUsers(): Promise<User[] | null | undefined> {
 export async function dbUpsertUser(user: User): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
+    const userEmail = (user.email && user.email.trim() !== "") 
+      ? user.email.trim() 
+      : `${user.id || 'usr-' + Date.now()}@siklin-placeholder.id`;
+
+    // 1. Check if user exists by ID
+    const { data: userById, error: errId } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (userById) {
+      // Exists by ID -> Update by ID
+      const { error } = await supabase
+        .from('users')
+        .update({
+          nama: user.nama,
+          email: userEmail,
+          role: user.role,
+          unit: user.unit || null,
+          foto: user.foto || null,
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        logDbError('Error updating user in Supabase by ID', error);
+        return false;
+      }
+      return true;
+    }
+
+    // 2. ID does not exist. Check if user exists by Email
+    const isPlaceholder = userEmail.includes('@siklin-placeholder.id');
+    if (!isPlaceholder) {
+      const { data: userByEmail, error: errEmail } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('email', userEmail)
+        .maybeSingle();
+
+      if (userByEmail) {
+        // Email exists with a different ID. Update by Email and align the ID.
+        const { error } = await supabase
+          .from('users')
+          .update({
+            id: user.id, // Align the database ID with the client-side ID
+            nama: user.nama,
+            role: user.role,
+            unit: user.unit || null,
+            foto: user.foto || null,
+          })
+          .eq('email', userEmail);
+
+        if (error) {
+          logDbError('Error updating user ID and details by email in Supabase', error);
+          return false;
+        }
+        return true;
+      }
+    }
+
+    // 3. Neither ID nor Email exists. Insert brand new user.
     const { error } = await supabase
       .from('users')
-      .upsert({
+      .insert({
         id: user.id,
         nama: user.nama,
-        email: user.email,
+        email: userEmail,
         role: user.role,
         unit: user.unit || null,
         foto: user.foto || null,
-      }, { onConflict: 'id' });
+      });
 
     if (error) {
-      logDbError('Error upserting user in Supabase', error);
+      logDbError('Error inserting new user in Supabase', error);
       return false;
     }
     return true;
   } catch (err) {
-    console.log('Supabase Sync status: user write local fallback active');
+    console.log('Supabase Sync status: user write local fallback active', err);
     return false;
   }
 }
@@ -120,9 +197,84 @@ export async function dbGetIndikators(): Promise<Indikator[] | null | undefined>
 export async function dbUpsertIndikator(ind: Indikator): Promise<boolean> {
   if (!isSupabaseConfigured()) return false;
   try {
+    // 1. Check if indicator exists by ID
+    const { data: indById, error: errId } = await supabase
+      .from('indikator')
+      .select('id, kode')
+      .eq('id', ind.id)
+      .maybeSingle();
+
+    if (indById) {
+      // Exists by ID -> Update by ID
+      const { error } = await supabase
+        .from('indikator')
+        .update({
+          kode: ind.kode,
+          nama: ind.nama,
+          unit: ind.unit,
+          kategori: ind.kategori,
+          numerator: ind.numerator,
+          denominator: ind.denominator,
+          formula: ind.formula,
+          target: ind.target,
+          satuan: ind.satuan,
+          frekuensi: ind.frekuensi,
+          pic: ind.pic,
+          status: ind.status,
+          arah_target: ind.arah_target || 'Semakin Tinggi',
+          bobot: ind.bobot !== undefined ? ind.bobot : 0,
+          created_at: ind.created_at,
+        })
+        .eq('id', ind.id);
+
+      if (error) {
+        logDbError('Error updating indicator in Supabase by ID', error);
+        return false;
+      }
+      return true;
+    }
+
+    // 2. ID does not exist. Check if indicator exists by Kode
+    const { data: indByKode, error: errKode } = await supabase
+      .from('indikator')
+      .select('id, kode')
+      .eq('kode', ind.kode)
+      .maybeSingle();
+
+    if (indByKode) {
+      // Kode exists with a different ID. Update by Kode and align the ID.
+      const { error } = await supabase
+        .from('indikator')
+        .update({
+          id: ind.id, // Align the database ID with the client-side ID
+          nama: ind.nama,
+          unit: ind.unit,
+          kategori: ind.kategori,
+          numerator: ind.numerator,
+          denominator: ind.denominator,
+          formula: ind.formula,
+          target: ind.target,
+          satuan: ind.satuan,
+          frekuensi: ind.frekuensi,
+          pic: ind.pic,
+          status: ind.status,
+          arah_target: ind.arah_target || 'Semakin Tinggi',
+          bobot: ind.bobot !== undefined ? ind.bobot : 0,
+          created_at: ind.created_at,
+        })
+        .eq('kode', ind.kode);
+
+      if (error) {
+        logDbError('Error updating indicator ID and details by kode in Supabase', error);
+        return false;
+      }
+      return true;
+    }
+
+    // 3. Neither ID nor Kode exists. Insert brand new indicator.
     const { error } = await supabase
       .from('indikator')
-      .upsert({
+      .insert({
         id: ind.id,
         kode: ind.kode,
         nama: ind.nama,
@@ -137,16 +289,17 @@ export async function dbUpsertIndikator(ind: Indikator): Promise<boolean> {
         pic: ind.pic,
         status: ind.status,
         arah_target: ind.arah_target || 'Semakin Tinggi',
+        bobot: ind.bobot !== undefined ? ind.bobot : 0,
         created_at: ind.created_at,
-      }, { onConflict: 'id' });
+      });
 
     if (error) {
-      logDbError('Error upserting indicator in Supabase', error);
+      logDbError('Error inserting new indicator in Supabase', error);
       return false;
     }
     return true;
   } catch (err) {
-    console.log('Supabase Sync status: indicator write local fallback active');
+    console.log('Supabase Sync status: indicator write local fallback active', err);
     return false;
   }
 }

@@ -62,23 +62,15 @@ export async function POST(req: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Save locally first (always act as a reliable fallback/local copy)
-    const uploadDir = join(process.cwd(), "public", "uploads");
-    await mkdir(uploadDir, { recursive: true });
-
     // Generate unique filename to avoid collision
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const filename = `${uniqueSuffix}.${ext}`;
-    const filePath = join(uploadDir, filename);
 
-    // Save the file to public/uploads
-    await writeFile(filePath, buffer);
-
-    // Default local file URL served by Next.js
-    let fileUrl = `/uploads/${filename}`;
+    let fileUrl = "";
     let isUploadedToSupabase = false;
+    let storageType: "supabase" | "local" | "base64" = "local";
 
-    // Try uploading to Supabase Storage bucket "uploads"
+    // Try uploading to Supabase Storage bucket "uploads" first if configured
     if (isSupabaseConfigured()) {
       try {
         const supabase = createClient(supabaseUrl!, supabaseAnonKey!);
@@ -99,13 +91,33 @@ export async function POST(req: NextRequest) {
           if (publicUrlData?.publicUrl) {
             fileUrl = publicUrlData.publicUrl;
             isUploadedToSupabase = true;
+            storageType = "supabase";
             console.log("Uploaded successfully to cloud storage:", fileUrl);
           }
         } else {
-          console.log("Supabase Storage fallback: saved to local folder.");
+          console.log("Supabase Storage upload failed or error returned, falling back to other storage methods.", error);
         }
       } catch (err) {
-        console.log("Supabase Storage fallback: exception handled, saved to local folder.");
+        console.log("Supabase Storage exception handled, falling back to other storage methods.");
+      }
+    }
+
+    // If not uploaded to Supabase, try saving locally
+    if (!isUploadedToSupabase) {
+      try {
+        const uploadDir = join(process.cwd(), "public", "uploads");
+        await mkdir(uploadDir, { recursive: true });
+        const filePath = join(uploadDir, filename);
+        await writeFile(filePath, buffer);
+        fileUrl = `/uploads/${filename}`;
+        storageType = "local";
+        console.log("File saved to local folder:", fileUrl);
+      } catch (localWriteError: any) {
+        console.log("Local filesystem is read-only or inaccessible (e.g. on Vercel). Falling back to Base64.", localWriteError?.message);
+        // Fallback to Base64 Data URL so it is completely serverless and compatible with Vercel
+        const base64Data = buffer.toString("base64");
+        fileUrl = `data:${file.type || "application/octet-stream"};base64,${base64Data}`;
+        storageType = "base64";
       }
     }
 
@@ -114,7 +126,7 @@ export async function POST(req: NextRequest) {
       url: fileUrl,
       filename: file.name,
       size: file.size,
-      storageType: isUploadedToSupabase ? "supabase" : "local",
+      storageType,
     });
   } catch (error: any) {
     console.log("Upload handler exception: processing fallback completed.", error?.message);

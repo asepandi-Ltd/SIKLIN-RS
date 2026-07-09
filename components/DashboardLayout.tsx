@@ -116,13 +116,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   } else {
                     Swal.fire({
                       icon: 'warning',
-                      title: 'Koneksi Gagal / Tabel Belum Ada',
+                      title: 'Koneksi Gagal / RLS Error',
                       html: `<div class="text-left text-xs space-y-2 leading-relaxed">
-                        <p>Kredensial Supabase terdeteksi, tetapi data tidak dapat dimuat dari database.</p>
-                        <p class="font-bold">Solusi Tercepat:</p>
-                        <p>Salin isi dari file <strong>supabase_schema.sql</strong> di folder root project dan jalankan (paste) di menu <strong>SQL Editor</strong> pada Supabase Console Anda untuk membuat tabel-tabel yang diperlukan.</p>
+                        <p>Kredensial Supabase terdeteksi, tetapi data tidak dapat dimuat atau disimpan ke database.</p>
+                        <p class="font-bold text-red-600">Penyebab Utama:</p>
+                        <ul class="list-disc pl-5 space-y-1">
+                          <li>Tabel belum dibuat di database Supabase Anda.</li>
+                          <li>Kebijakan RLS (Row Level Security) memblokir akses baca/tulis.</li>
+                        </ul>
+                        <p class="font-bold mt-2 text-teal-700">Solusi Tercepat:</p>
+                        <p>Salin seluruh isi dari file <strong class="bg-slate-100 px-1 py-0.5 rounded text-slate-800 font-mono">supabase_schema.sql</strong> yang ada di folder root project ini, lalu jalankan (paste & run) di menu <strong>SQL Editor</strong> pada Supabase Console Anda.</p>
+                        <p class="text-[11px] text-slate-500 italic">Catatan: Script tersebut akan otomatis membuat tabel, mengaktifkan real-time, dan mengatur izin kebijakan RLS publik agar aplikasi dapat membaca & menulis data dengan lancar.</p>
                       </div>`,
-                      confirmButtonText: 'Mengerti',
+                      confirmButtonText: 'Saya Mengerti',
                       confirmButtonColor: '#00A8A8'
                     });
                   }

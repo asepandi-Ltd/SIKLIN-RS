@@ -46,6 +46,7 @@ export interface Indikator {
   status: boolean; // true = aktif
   created_at: string;
   arah_target?: 'Semakin Tinggi' | 'Semakin Rendah';
+  bobot?: number;
 }
 
 export interface Capaian {
