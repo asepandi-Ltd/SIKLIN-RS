@@ -144,7 +144,8 @@ export default function LaporanPage() {
   // Helper to filter indicators list
   function filteredInds() {
     return indikatorList.filter(ind => {
-      return selectedUnit === "Semua Unit" || ind.unit === selectedUnit;
+      const matchesUnit = selectedUnit === "Semua Unit" || ind.unit === selectedUnit;
+      return matchesUnit && ind.status;
     });
   }
 

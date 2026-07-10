@@ -16,7 +16,7 @@ export default function CapaianUnitPage() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   
   // Extract unique units
-  const units = Array.from(new Set(indikatorList.map(i => i.unit))).sort();
+  const units = Array.from(new Set(indikatorList.filter(i => i.status).map(i => i.unit))).sort();
   
   useEffect(() => {
     if (currentUser && currentUser.role !== "Super Admin" && currentUser.role !== "Supervisor" && currentUser.unit) {
@@ -30,7 +30,7 @@ export default function CapaianUnitPage() {
     updateIndikator(indikatorId, { bobot: safeNum });
   };
 
-  const filteredIndikators = indikatorList.filter(i => i.unit === selectedUnit);
+  const filteredIndikators = indikatorList.filter(i => i.unit === selectedUnit && i.status);
   let totalKinerjaUnit = 0;
 
   return (

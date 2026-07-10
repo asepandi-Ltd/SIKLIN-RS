@@ -228,6 +228,34 @@ export async function dbUpsertIndikator(ind: Indikator): Promise<boolean> {
         .eq('id', ind.id);
 
       if (error) {
+        if (error.code === '23505' || error.message?.includes('duplicate key')) {
+          console.warn(`[Supabase Sync] Duplicate key conflict on update for kode ${ind.kode}. Resolving conflict...`);
+          const { error: updateByKodeErr } = await supabase
+            .from('indikator')
+            .update({
+              nama: ind.nama,
+              unit: ind.unit,
+              kategori: ind.kategori,
+              numerator: ind.numerator,
+              denominator: ind.denominator,
+              formula: ind.formula,
+              target: ind.target,
+              satuan: ind.satuan,
+              frekuensi: ind.frekuensi,
+              pic: ind.pic,
+              status: ind.status,
+              arah_target: ind.arah_target || 'Semakin Tinggi',
+              bobot: ind.bobot !== undefined ? ind.bobot : 0,
+              created_at: ind.created_at,
+            })
+            .eq('kode', ind.kode);
+
+          if (!updateByKodeErr) {
+            console.log(`[Supabase Sync] Successfully resolved duplicate key conflict on update by updating existing indicator by kode: ${ind.kode}`);
+            return true;
+          }
+          logDbError('Error resolving duplicate key on update by updating by kode', updateByKodeErr);
+        }
         logDbError('Error updating indicator in Supabase by ID', error);
         return false;
       }
@@ -294,6 +322,34 @@ export async function dbUpsertIndikator(ind: Indikator): Promise<boolean> {
       });
 
     if (error) {
+      if (error.code === '23505' || error.message?.includes('duplicate key')) {
+        console.warn(`[Supabase Sync] Duplicate key conflict on insert for kode ${ind.kode}. Resolving conflict...`);
+        const { error: updateByKodeErr } = await supabase
+          .from('indikator')
+          .update({
+            nama: ind.nama,
+            unit: ind.unit,
+            kategori: ind.kategori,
+            numerator: ind.numerator,
+            denominator: ind.denominator,
+            formula: ind.formula,
+            target: ind.target,
+            satuan: ind.satuan,
+            frekuensi: ind.frekuensi,
+            pic: ind.pic,
+            status: ind.status,
+            arah_target: ind.arah_target || 'Semakin Tinggi',
+            bobot: ind.bobot !== undefined ? ind.bobot : 0,
+            created_at: ind.created_at,
+          })
+          .eq('kode', ind.kode);
+
+        if (!updateByKodeErr) {
+          console.log(`[Supabase Sync] Successfully resolved duplicate key conflict on insert by updating existing indicator by kode: ${ind.kode}`);
+          return true;
+        }
+        logDbError('Error resolving duplicate key on insert by updating by kode', updateByKodeErr);
+      }
       logDbError('Error inserting new indicator in Supabase', error);
       return false;
     }

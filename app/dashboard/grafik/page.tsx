@@ -55,7 +55,7 @@ export default function GrafikCapaianPage() {
     );
   }
 
-  const allUnits = Array.from(new Set(indikatorList.map(ind => ind.unit)));
+  const allUnits = Array.from(new Set(indikatorList.filter(i => i.status).map(ind => ind.unit)));
   const monthsList = [
     { num: 1, name: "Januari", short: "Jan" },
     { num: 2, name: "Februari", short: "Feb" },
@@ -65,11 +65,11 @@ export default function GrafikCapaianPage() {
     { num: 6, name: "Juni", short: "Jun" }
   ];
 
-  // Apply filters on capaian & indicators
+  // Apply filters on capaian & indicators (only active ones)
   const filteredInds = indikatorList.filter(ind => {
     const matchesUnit = selectedUnit === "Semua Unit" || ind.unit === selectedUnit;
     const matchesKategori = selectedKategori === "Semua Kategori" || ind.kategori === selectedKategori;
-    return matchesUnit && matchesKategori;
+    return matchesUnit && matchesKategori && ind.status;
   });
 
   const filteredIndIds = filteredInds.map(i => i.id);
@@ -96,7 +96,7 @@ export default function GrafikCapaianPage() {
 
   // 2. Bar Chart: Capaian per Unit
   const barChartData = allUnits.map(unit => {
-    const unitIndIds = indikatorList.filter(i => i.unit === unit).map(i => i.id);
+    const unitIndIds = indikatorList.filter(i => i.unit === unit && i.status).map(i => i.id);
     const unitCaps = capaianList.filter(c => 
       unitIndIds.includes(c.indikator_id) && 
       c.tahun === selectedTahun && 
@@ -127,7 +127,7 @@ export default function GrafikCapaianPage() {
   // 4. Heatmap Kepatuhan Penginputan (Tabular Grid Month vs Unit)
   // Maps out submission rate for each unit on each month (e.g. 100% Green, 0% Red)
   const getComplianceStatus = (unit: string, month: number) => {
-    const unitInds = indikatorList.filter(i => i.unit === unit);
+    const unitInds = indikatorList.filter(i => i.unit === unit && i.status);
     if (unitInds.length === 0) return 'neutral';
     const unitIndIds = unitInds.map(i => i.id);
     const submitted = capaianList.filter(c => 
@@ -153,7 +153,7 @@ export default function GrafikCapaianPage() {
   const failedKpisMap: { [key: string]: { count: number; name: string; code: string } } = {};
   capaianList.filter(c => c.status === 'Tidak Tercapai' && c.status_submit === 'Submitted').forEach(c => {
     const ind = indikatorList.find(i => i.id === c.indikator_id);
-    if (ind) {
+    if (ind && ind.status) {
       if (!failedKpisMap[ind.id]) {
         failedKpisMap[ind.id] = { count: 0, name: ind.nama, code: ind.kode };
       }

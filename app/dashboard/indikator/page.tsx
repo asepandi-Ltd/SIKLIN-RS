@@ -197,6 +197,20 @@ export default function ProfilIndikatorPage() {
     };
 
     if (editingId) {
+      // Check duplicate code on edit (excluding the current item)
+      const duplicate = indikatorList.some(
+        ind => ind.id !== editingId && ind.kode.toLowerCase() === formKode.toLowerCase()
+      );
+      if (duplicate) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Kode Duplikat',
+          text: 'Indikator dengan kode ini sudah ada di sistem!',
+          confirmButtonColor: '#00A8A8',
+        });
+        return;
+      }
+
       updateIndikator(editingId, payload);
       Swal.fire({
         icon: 'success',

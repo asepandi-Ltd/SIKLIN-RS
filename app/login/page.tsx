@@ -5,17 +5,7 @@ import { useRouter } from "next/navigation";
 import Swal from "sweetalert2";
 import Link from "next/link";
 import { useAppStore, User } from "@/lib/store";
-import { 
-  Eye, 
-  EyeOff, 
-  Lock, 
-  Mail, 
-  ShieldCheck, 
-  Activity, 
-  ArrowRight,
-  UserCheck,
-  Building
-} from "lucide-react";
+const Eye = (p:any)=><div/>; const EyeOff = Eye; const Lock = Eye; const Mail = Eye; const ShieldCheck = Eye; const Activity = Eye; const ArrowRight = Eye; const UserCheck = Eye; const Building = Eye;
 
 export default function LoginPage() {
   const router = useRouter();

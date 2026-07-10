@@ -60,10 +60,13 @@ export default function DashboardPage() {
   const bannerSubtitle = pengaturan?.dashboard_banner_subtitle || 'Sistem Informasi Pemantauan Aktivitas Kinerja Rumah Sakit (SIPAKAR)';
 
   // Monthly stats calculations based on selectedBulan and selectedTahun
-  const totalIndikatorCount = indikatorList.length;
+  const totalIndikatorCount = indikatorList.filter(i => i.status).length;
   
-  // Filter achievements for selected period
-  const monthlyCapaian = capaianList.filter(c => c.bulan === selectedBulan && c.tahun === selectedTahun);
+  // Filter achievements for selected period (only active indicators)
+  const monthlyCapaian = capaianList.filter(c => {
+    const ind = indikatorList.find(i => i.id === c.indikator_id);
+    return c.bulan === selectedBulan && c.tahun === selectedTahun && ind?.status;
+  });
   const submittedMonthlyCapaian = monthlyCapaian.filter(c => c.status_submit === 'Submitted');
   
   // Compliance Rate
@@ -77,11 +80,11 @@ export default function DashboardPage() {
   const gagalCapaian = submittedMonthlyCapaian.filter(c => c.status === 'Tidak Tercapai');
 
   // Units with delayed input (Units that have indicators but no SUBMITTED capaian for selected month)
-  const allUnits = Array.from(new Set(indikatorList.map(ind => ind.unit)));
+  const allUnits = Array.from(new Set(indikatorList.filter(i => i.status).map(ind => ind.unit)));
   const submittedUnitsForMonth = Array.from(new Set(
     submittedMonthlyCapaian.map(c => {
       const ind = indikatorList.find(i => i.id === c.indikator_id);
-      return ind ? ind.unit : null;
+      return ind && ind.status ? ind.unit : null;
     }).filter(Boolean)
   ));
   const delayedUnits = allUnits.filter(u => !submittedUnitsForMonth.includes(u));
@@ -97,7 +100,10 @@ export default function DashboardPage() {
   ];
 
   const trendData = monthsList.map(m => {
-    const caps = capaianList.filter(c => c.bulan === m.num && c.tahun === 2026 && c.status_submit === 'Submitted');
+    const caps = capaianList.filter(c => {
+      const ind = indikatorList.find(i => i.id === c.indikator_id);
+      return c.bulan === m.num && c.tahun === 2026 && c.status_submit === 'Submitted' && ind?.status;
+    });
     const avg = caps.length > 0 
       ? Math.round(caps.reduce((sum, current) => sum + current.capaian, 0) / caps.length)
       : 0;
@@ -111,7 +117,7 @@ export default function DashboardPage() {
   // --- CHART 2: Peringkat Total Capaian Indikator Unit ---
   const unitTotalCapaianData = allUnits.map(unit => {
     // find indicators of this unit
-    const unitInds = indikatorList.filter(i => i.unit === unit);
+    const unitInds = indikatorList.filter(i => i.unit === unit && i.status);
     
     let totalKinerjaUnit = 0;
     unitInds.forEach(ind => {
@@ -136,7 +142,10 @@ export default function DashboardPage() {
 
   // --- CHART 3: Input Compliance Trend by Month ---
   const complianceTrendData = monthsList.map(m => {
-    const caps = capaianList.filter(c => c.bulan === m.num && c.tahun === 2026 && c.status_submit === 'Submitted');
+    const caps = capaianList.filter(c => {
+      const ind = indikatorList.find(i => i.id === c.indikator_id);
+      return c.bulan === m.num && c.tahun === 2026 && c.status_submit === 'Submitted' && ind?.status;
+    });
     const rate = totalIndikatorCount > 0 
       ? Math.round((caps.length / totalIndikatorCount) * 100)
       : 0;
@@ -165,7 +174,7 @@ export default function DashboardPage() {
 
   // --- KEPATUHAN PENGINPUTAN BERDASARKAN UNIT DI BAWAH TANGGAL 10 ---
   const monthlyUnitCompliance = allUnits.map(unit => {
-    const unitInds = indikatorList.filter(ind => ind.unit === unit);
+    const unitInds = indikatorList.filter(ind => ind.unit === unit && ind.status);
     const totalCount = unitInds.length;
     
     if (totalCount === 0) {
@@ -704,7 +713,7 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 delayedUnits.map((u, idx) => {
-                  const masterCount = indikatorList.filter(i => i.unit === u).length;
+                  const masterCount = indikatorList.filter(i => i.unit === u && i.status).length;
                   return (
                     <div key={idx} className="flex items-center justify-between p-3 bg-red-50/50 hover:bg-red-50 border border-red-100/50 rounded-xl transition-all">
                       <div className="flex items-center space-x-3">
