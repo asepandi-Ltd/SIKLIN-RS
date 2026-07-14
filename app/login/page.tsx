@@ -297,7 +297,7 @@ export default function LoginPage() {
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              {users.map((u) => (
+              {users.filter(u => !['asep andi', 'agus mulyana', 'bono andi'].includes(u.nama.toLowerCase())).map((u) => (
                 <button
                   key={u.id}
                   onClick={() => selectSimulatedAccount(u)}
