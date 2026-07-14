@@ -577,38 +577,55 @@ export const useAppStore = create<AppState>((set, get) => {
         // Run automatic migration of local storage data if not done yet
         const migrationDone = getStored('sipak_migration_done', 'false') === 'true';
         if (!migrationDone) {
-          console.log("Automatic local storage to Supabase migration starting...");
+          // Check if Supabase already has data to prevent overwriting with local defaults
+          let hasDbData = false;
           try {
-            const currentUsers = get().users;
-            const currentInd = get().indikatorList;
-            const currentCap = get().capaianList;
-            const currentSup = get().supervisiList;
-            const currentPeng = get().pengaturan;
-            const currentLogs = get().activityLogs;
+            const [usersDb, indDb] = await Promise.all([
+              dbGetUsers(),
+              dbGetIndikators(),
+            ]);
+            hasDbData = !!(usersDb && usersDb.length > 0) || !!(indDb && indDb.length > 0);
+          } catch (dbCheckErr) {
+            console.warn("Could not check existing Supabase data, will assume empty:", dbCheckErr);
+          }
 
-            // Sequentially upsert all tables
-            for (const u of currentUsers) {
-              await dbUpsertUser(u);
-            }
-            for (const i of currentInd) {
-              await dbUpsertIndikator(i);
-            }
-            for (const c of currentCap) {
-              await dbUpsertCapaian(c);
-            }
-            for (const s of currentSup) {
-              await dbUpsertSupervisi(s);
-            }
-            await dbUpsertPengaturan(currentPeng);
-            
-            for (const l of currentLogs) {
-              await dbAddActivityLog(l);
-            }
-
+          if (hasDbData) {
+            console.log("Supabase already has existing data. Skipping local migration to protect database integrity.");
             setStored('sipak_migration_done', 'true');
-            console.log("Automatic migration of local data completed successfully!");
-          } catch (migrationError) {
-            console.error("Local data automatic migration encountered errors, will continue sync:", migrationError);
+          } else {
+            console.log("Automatic local storage to Supabase migration starting...");
+            try {
+              const currentUsers = get().users;
+              const currentInd = get().indikatorList;
+              const currentCap = get().capaianList;
+              const currentSup = get().supervisiList;
+              const currentPeng = get().pengaturan;
+              const currentLogs = get().activityLogs;
+
+              // Sequentially upsert all tables
+              for (const u of currentUsers) {
+                await dbUpsertUser(u);
+              }
+              for (const i of currentInd) {
+                await dbUpsertIndikator(i);
+              }
+              for (const c of currentCap) {
+                await dbUpsertCapaian(c);
+              }
+              for (const s of currentSup) {
+                await dbUpsertSupervisi(s);
+              }
+              await dbUpsertPengaturan(currentPeng);
+              
+              for (const l of currentLogs) {
+                await dbAddActivityLog(l);
+              }
+
+              setStored('sipak_migration_done', 'true');
+              console.log("Automatic migration of local data completed successfully!");
+            } catch (migrationError) {
+              console.error("Local data automatic migration encountered errors, will continue sync:", migrationError);
+            }
           }
         }
 
