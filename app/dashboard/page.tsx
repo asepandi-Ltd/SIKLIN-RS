@@ -29,7 +29,11 @@ import {
   Plus,
   Activity,
   Award,
-  Sparkles
+  Sparkles,
+  HeartHandshake,
+  Star,
+  Calendar,
+  Smile
 } from "lucide-react";
 import Link from "next/link";
 import Swal from "sweetalert2";
@@ -39,6 +43,7 @@ export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedBulan, setSelectedBulan] = useState(3); // March (seeded latest)
   const [selectedTahun, setSelectedTahun] = useState(2026);
+  const [satisfactionBulan, setSatisfactionBulan] = useState(3);
   const [expandedUnit, setExpandedUnit] = useState<string | null>(null);
 
   useEffect(() => {
@@ -233,6 +238,58 @@ export default function DashboardPage() {
       details
     };
   }).sort((a, b) => b.percentage - a.percentage || b.compliant - a.compliant);
+
+  // --- CAPAIAN KEPUASAN PELANGGAN & RATING GOOGLE / KESSAN ---
+  const satisfactionConfigs = [
+    { code: 'LAB-07', unit: 'Laboratorium', title: 'Kepuasan Pelanggan Laboratorium', desc: 'Penunjang Medis • Laboratorium' },
+    { code: 'FAR-05', unit: 'Farmasi', title: 'Kepuasan Pelanggan Farmasi', desc: 'Penunjang Medis • Farmasi' },
+    { code: 'RM-05', unit: 'Rekam Medis', title: 'Kepuasan Pelanggan Rekam Medis', desc: 'Penunjang Non Medis • Rekam Medis' },
+    { code: 'GIZ-05', unit: 'Gizi', title: 'Kepuasan Pelanggan Gizi', desc: 'Penunjang Medis • Gizi' },
+    { code: 'HUM-07', unit: 'Humas & Pemasaran', title: 'Rating Google Review & KESSAN BPJS', desc: 'Penunjang Non Medis • Humas & Pemasaran' },
+  ];
+
+  const satisfactionData = satisfactionConfigs.map((cfg) => {
+    const ind = indikatorList.find((i) =>
+      i.status && (
+        i.kode.toUpperCase().includes(cfg.code) ||
+        (i.unit.toLowerCase().includes(cfg.unit.toLowerCase()) && 
+         (i.nama.toLowerCase().includes('kepuasan') || i.nama.toLowerCase().includes('google') || i.nama.toLowerCase().includes('kessan')))
+      )
+    );
+
+    const cap = ind
+      ? capaianList.find(
+          (c) =>
+            c.indikator_id === ind.id &&
+            c.bulan === satisfactionBulan &&
+            c.tahun === selectedTahun &&
+            c.status_submit === 'Submitted'
+        )
+      : null;
+
+    const targetVal = ind?.target ?? 85;
+    const capaianVal = cap ? cap.capaian : null;
+    const statusVal = cap ? cap.status : 'Belum Diisi';
+
+    return {
+      ...cfg,
+      ind,
+      cap,
+      targetVal,
+      capaianVal,
+      statusVal
+    };
+  });
+
+  const reportedSatisfactionItems = satisfactionData.filter(d => d.capaianVal !== null);
+  const reportedSatisfactionCount = reportedSatisfactionItems.length;
+
+  // Rata-rata kepuasan khusus unit penunjang (tanpa HUM-07 Google Review & KESSAN)
+  const penunjangSatisfactionItems = satisfactionData.filter(d => d.code !== 'HUM-07' && d.capaianVal !== null);
+  const penunjangSatisfactionCount = penunjangSatisfactionItems.length;
+  const avgSatisfactionScore = penunjangSatisfactionCount > 0
+    ? (penunjangSatisfactionItems.reduce((acc, curr) => acc + (curr.capaianVal || 0), 0) / penunjangSatisfactionCount).toFixed(1)
+    : "0.0";
 
   return (
     <div className="space-y-6 font-sans">
@@ -743,50 +800,108 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Hot Supervisi Bulletins */}
+        {/* Capaian Kepuasan Pelanggan & Rating Google/KESSAN */}
         <div className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-extrabold text-slate-800 text-sm">Status Supervisi Mutu Terkini</h3>
-              <Link href="/dashboard/supervisi" className="text-xs font-bold text-[#00A8A8] hover:underline flex items-center gap-0.5">
-                <span>Kelola Supervisi</span>
-                <ArrowUpRight size={14} />
-              </Link>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-100">
+              <div>
+                <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
+                  <HeartHandshake className="text-[#00A8A8] w-4.5 h-4.5 shrink-0" />
+                  <span>Capaian Kepuasan Pelanggan & KESSAN</span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Unit Penunjang (LAB-07, FAR-05, RM-05, GIZ-05) & Google Review / KESSAN BPJS (HUM-07)
+                </p>
+              </div>
+
+              {/* Pilihan Bulan Selector */}
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl shadow-xs">
+                <Calendar className="w-3.5 h-3.5 text-slate-500" />
+                <span className="text-[11px] font-bold text-slate-500">Bulan:</span>
+                <select
+                  value={satisfactionBulan}
+                  onChange={(e) => setSatisfactionBulan(Number(e.target.value))}
+                  className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer pr-1"
+                >
+                  {monthsList.map((m) => (
+                    <option key={m.num} value={m.num}>
+                      {monthsNameMap[m.num]} {selectedTahun}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            <div className="space-y-3.5">
-              {supervisiList.slice(0, 3).map((sup) => (
-                <div key={sup.id} className="p-3.5 bg-slate-50 hover:bg-gray-50 border border-gray-100 rounded-xl transition-all flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-xs font-extrabold text-slate-800">{sup.unit}</p>
-                      <span className="text-[10px] text-slate-400 font-bold">&bull; {new Date(sup.tanggal).toLocaleDateString('id-ID')}</span>
+            <div className="space-y-2.5">
+              {satisfactionData.map((item) => {
+                const isReported = item.capaianVal !== null;
+                const percent = isReported ? item.capaianVal : 0;
+
+                return (
+                  <div key={item.code} className="p-3 bg-slate-50/70 hover:bg-slate-50 border border-gray-100/80 rounded-xl transition-all">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 text-[10px] font-black bg-[#00A8A8]/10 text-[#00A8A8] rounded-md border border-[#00A8A8]/20 shrink-0">
+                          {item.code}
+                        </span>
+                        <div>
+                          <p className="text-xs font-extrabold text-slate-800">{item.title}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{item.desc}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                        {isReported ? (
+                          <span className="text-xs font-black text-slate-800">
+                            {item.capaianVal}% <span className="text-[10px] text-slate-400 font-normal">/ target {item.targetVal}%</span>
+                          </span>
+                        ) : (
+                          <span className="text-[11px] font-bold text-slate-400 italic">Belum Melapor</span>
+                        )}
+
+                        <span className={`px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-wide ${
+                          !isReported
+                            ? 'bg-gray-100 text-gray-500'
+                            : item.statusVal === 'Tercapai'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : item.statusVal === 'Mendekati Target'
+                                ? 'bg-amber-100 text-amber-700'
+                                : 'bg-rose-100 text-rose-700'
+                        }`}>
+                          {item.statusVal}
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-500 line-clamp-1 italic">
-                      &quot;{sup.temuan}&quot;
-                    </p>
-                    <div className="text-[10px] text-slate-400 font-medium">
-                      Deadline: <strong className="text-slate-600">{sup.deadline ? new Date(sup.deadline).toLocaleDateString('id-ID') : '-'}</strong>
+
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className={`h-1.5 rounded-full transition-all duration-500 ${
+                          !isReported
+                            ? 'bg-gray-300'
+                            : item.statusVal === 'Tercapai'
+                              ? 'bg-[#00A8A8]'
+                              : item.statusVal === 'Mendekati Target'
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                        }`}
+                        style={{ width: `${Math.min(100, Math.max(0, Number(percent)))}%` }}
+                      />
                     </div>
                   </div>
-
-                  <span className={`inline-block self-start sm:self-auto px-2.5 py-0.5 text-[9px] font-black rounded uppercase tracking-wide ${
-                    sup.status === 'Selesai' 
-                      ? 'bg-green-100 text-green-700' 
-                      : sup.status === 'Proses' 
-                        ? 'bg-amber-100 text-amber-700' 
-                        : 'bg-red-100 text-red-700'
-                  }`}>
-                    {sup.status}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-xs font-bold text-slate-400">
-            <span>Total Aktif: {supervisiList.filter(s => s.status !== 'Selesai').length} kasus</span>
-            <span>Rasio Penyelesaian: {Math.round((supervisiList.filter(s => s.status === 'Selesai').length / supervisiList.length) * 100)}%</span>
+          <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-between text-xs font-bold text-slate-500 gap-2">
+            <span className="flex items-center gap-1.5">
+              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+              <span>Rata-rata Kepuasan Unit Penunjang: <strong className="text-slate-800">{avgSatisfactionScore}%</strong></span>
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Periode: <strong>{monthsNameMap[satisfactionBulan]} {selectedTahun}</strong> ({reportedSatisfactionCount}/5 Unit Melapor)
+            </span>
           </div>
         </div>
       </div>

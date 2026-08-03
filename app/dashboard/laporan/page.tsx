@@ -251,9 +251,9 @@ export default function LaporanPage() {
             <tr>
               <td class="logo-placeholder" style="width: 60px;">[+]</td>
               <td>
-                <div style="font-size: 13px; font-weight: bold; letter-spacing: 1px;">PEMERINTAH KOTA KENDARI</div>
-                <div style="font-size: 14px; font-weight: 900; color: #00A8A8;">RSUD AL-MULK KOTA KENDARI</div>
-                <div style="font-size: 10px; color: #555;">Jl. Jend. AH. Nasution No.17, Kota Kendari, Sulawesi Tenggara</div>
+                <div style="font-size: 13px; font-weight: bold; letter-spacing: 1px;">PEMERINTAH KOTA SUKABUMI</div>
+                <div style="font-size: 14px; font-weight: 900; color: #00A8A8;">RSUD AL-MULK KOTA SUKABUMI</div>
+                <div style="font-size: 10px; color: #555;">Jl. Pelabuhan II KM. 6 Lembursitu, Kota Sukabumi</div>
               </td>
               <td style="text-align: right; font-size: 10px; color: #555;">
                 Form SIPAKAR-LAP-02<br/>
@@ -313,16 +313,16 @@ export default function LaporanPage() {
               <p>Mengetahui,</p>
               <p style="font-weight: bold; text-transform: uppercase;">Direktur RSUD Al-Mulk</p>
               <div class="sig-space"></div>
-              <p style="text-decoration: underline; font-weight: bold;">dr. Hj. Syariati, M.Kes</p>
-              <p>NIP. 19741211 200501 2 008</p>
+              <p style="text-decoration: underline; font-weight: bold;">Dr. Deni Purnama, S.Kep.,MKM.,FISQua</p>
+              <p>NIP. 19801109 200312 1002</p>
             </div>
 
             <div class="sig-block">
-              <p>Kendari, ${new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+              <p>Sukabumi, ${new Date().toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
               <p style="font-weight: bold; text-transform: uppercase;">Kepala Seksi Penunjang</p>
               <div class="sig-space"></div>
-              <p style="text-decoration: underline; font-weight: bold;">dr. H. Abdurrahman, M.Kes</p>
-              <p>NIP. 19810805 201001 1 012</p>
+              <p style="text-decoration: underline; font-weight: bold;">Asep Andi Januanto, S.Kep.,Ners</p>
+              <p>NIP. 19870116 201001 1002</p>
             </div>
           </div>
 
