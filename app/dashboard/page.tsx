@@ -242,6 +242,7 @@ export default function DashboardPage() {
   // --- CAPAIAN KEPUASAN PELANGGAN & RATING GOOGLE / KESSAN ---
   const satisfactionConfigs = [
     { code: 'LAB-07', unit: 'Laboratorium', title: 'Kepuasan Pelanggan Laboratorium', desc: 'Penunjang Medis • Laboratorium' },
+    { code: 'RAD-05', unit: 'Radiologi', title: 'Kepuasan Pelanggan Radiologi', desc: 'Penunjang Medis • Radiologi' },
     { code: 'FAR-05', unit: 'Farmasi', title: 'Kepuasan Pelanggan Farmasi', desc: 'Penunjang Medis • Farmasi' },
     { code: 'RM-05', unit: 'Rekam Medis', title: 'Kepuasan Pelanggan Rekam Medis', desc: 'Penunjang Non Medis • Rekam Medis' },
     { code: 'GIZ-05', unit: 'Gizi', title: 'Kepuasan Pelanggan Gizi', desc: 'Penunjang Medis • Gizi' },
@@ -810,7 +811,7 @@ export default function DashboardPage() {
                   <span>Capaian Kepuasan Pelanggan & KESSAN</span>
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Unit Penunjang (LAB-07, FAR-05, RM-05, GIZ-05) & Google Review / KESSAN BPJS (HUM-07)
+                  Unit Penunjang (LAB, RAD, FAR, RM, GIZ) & Google Review / KESSAN BPJS (HUM)
                 </p>
               </div>
 
@@ -900,7 +901,7 @@ export default function DashboardPage() {
               <span>Rata-rata Kepuasan Unit Penunjang: <strong className="text-slate-800">{avgSatisfactionScore}%</strong></span>
             </span>
             <span className="text-[11px] text-slate-400">
-              Periode: <strong>{monthsNameMap[satisfactionBulan]} {selectedTahun}</strong> ({reportedSatisfactionCount}/5 Unit Melapor)
+              Periode: <strong>{monthsNameMap[satisfactionBulan]} {selectedTahun}</strong> ({reportedSatisfactionCount}/{satisfactionConfigs.length} Unit Melapor)
             </span>
           </div>
         </div>
