@@ -33,7 +33,9 @@ import {
   HeartHandshake,
   Star,
   Calendar,
-  Smile
+  Smile,
+  Bell,
+  ShieldAlert
 } from "lucide-react";
 import Link from "next/link";
 import Swal from "sweetalert2";
@@ -748,55 +750,69 @@ export default function DashboardPage() {
       {/* Exception Monitoring (Late inputs & Active Supervisi) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Late units warning list */}
+        {/* Notifikasi Pemberitahuan Informasi Temuan Supervisi */}
         <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
-                <AlertTriangle className="text-amber-500 w-4 h-4 shrink-0" />
-                <span>Unit Belum Melapor Bulan Ini</span>
-              </h3>
-              <span className="px-2 py-0.5 bg-amber-50 text-amber-600 text-[9px] font-black rounded uppercase">Evaluasi Kepatuhan</span>
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-xs sm:text-sm">Notifikasi Informasi Temuan Supervisi</h3>
+                  <p className="text-[10px] text-slate-400 font-medium">Monitoring & Tindak Lanjut Mutu</p>
+                </div>
+              </div>
+              <Link href="/dashboard/supervisi" className="text-xs font-bold text-[#00A8A8] hover:underline flex items-center gap-0.5 shrink-0">
+                <span>Kelola</span>
+                <ArrowUpRight size={14} />
+              </Link>
             </div>
-            <p className="text-xs text-slate-400 leading-relaxed mb-4">
-              Daftar unit kerja Seksi Penunjang yang belum melakukan kirim/submit data realisasi kinerja pada bulan <strong>{monthsNameMap[selectedBulan]} {selectedTahun}</strong>:
-            </p>
 
-            <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-              {delayedUnits.length === 0 ? (
-                <div className="text-center p-6 bg-green-50 border border-green-100 rounded-xl">
-                  <CheckCircle className="text-green-600 w-8 h-8 mx-auto mb-2" />
-                  <p className="text-xs font-bold text-green-800">Hebat! Semua Unit Sudah Melapor</p>
-                  <p className="text-[10px] text-green-600 mt-0.5">Tingkat kepatuhan seksi mencapai 100%.</p>
+            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+              {supervisiList.length === 0 ? (
+                <div className="text-center p-6 bg-slate-50 border border-slate-100 rounded-xl">
+                  <CheckCircle className="text-emerald-500 w-7 h-7 mx-auto mb-1.5" />
+                  <p className="text-xs font-bold text-slate-700">Belum Ada Temuan Supervisi</p>
+                  <p className="text-[10px] text-slate-400">Seluruh unit berjalan sesuai standar operasional.</p>
                 </div>
               ) : (
-                delayedUnits.map((u, idx) => {
-                  const masterCount = indikatorList.filter(i => i.unit === u && i.status).length;
-                  return (
-                    <div key={idx} className="flex items-center justify-between p-3 bg-red-50/50 hover:bg-red-50 border border-red-100/50 rounded-xl transition-all">
-                      <div className="flex items-center space-x-3">
-                        <span className="w-2 h-2 bg-red-500 rounded-full shrink-0" />
-                        <div>
-                          <p className="text-xs font-extrabold text-slate-800">{u}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Seksi Penunjang</p>
-                        </div>
+                supervisiList.map((sup) => (
+                  <div key={sup.id} className="p-3 bg-slate-50/80 hover:bg-slate-50 border border-gray-100 rounded-xl transition-all">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-[#00A8A8] shrink-0" />
+                        <p className="text-xs font-black text-slate-800">{sup.unit}</p>
                       </div>
-                      <span className="text-[10px] font-black px-2 py-0.5 bg-red-100 text-red-700 rounded-md">
-                        {masterCount} Indikator Terhambat
+                      <span className={`px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-wide ${
+                        sup.status === 'Selesai' 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : sup.status === 'Proses' 
+                            ? 'bg-amber-100 text-amber-700' 
+                            : 'bg-rose-100 text-rose-700'
+                      }`}>
+                        {sup.status}
                       </span>
                     </div>
-                  );
-                })
+                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed font-medium mb-1.5">
+                      &quot;{sup.temuan}&quot;
+                    </p>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-gray-200/50 pt-1.5 mt-1">
+                      <span>Tanggal: <strong className="text-slate-600">{new Date(sup.tanggal).toLocaleDateString('id-ID')}</strong></span>
+                      <span>Target: <strong className="text-slate-600">{sup.deadline ? new Date(sup.deadline).toLocaleDateString('id-ID') : '-'}</strong></span>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
 
           <div className="mt-4 pt-4 border-t border-gray-100">
             <Link
-              href="/dashboard/laporan"
-              className="w-full block text-center py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-extrabold rounded-lg transition-colors border"
+              href="/dashboard/supervisi"
+              className="w-full block text-center py-2 bg-slate-50 hover:bg-slate-100 text-[#00A8A8] text-xs font-extrabold rounded-lg transition-colors border border-gray-200/80"
             >
-              Kirim Pengingat Input KPI &rarr;
+              Lihat Seluruh Hasil & Tindak Lanjut Supervisi Mutu &rarr;
             </Link>
           </div>
         </div>
