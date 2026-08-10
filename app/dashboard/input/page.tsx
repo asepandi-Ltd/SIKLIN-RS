@@ -307,13 +307,25 @@ export default function InputDataPage() {
     resetForm();
   };
 
+  const isSameUnit = (unitA?: string, unitB?: string) => {
+    if (!unitA || !unitB) return false;
+    if (unitA === unitB) return true;
+    const normA = unitA.toLowerCase().replace(/&/g, 'dan').trim();
+    const normB = unitB.toLowerCase().replace(/&/g, 'dan').trim();
+    if (normA === normB) return true;
+    if ((normA.includes('it') || normA.includes('itrs')) && (normB.includes('it') || normB.includes('itrs'))) return true;
+    if (normA.includes('humas') && normB.includes('humas')) return true;
+    if (normA.includes('cssd') && normB.includes('cssd')) return true;
+    return false;
+  };
+
   // Edit preloaded entry handler
   const startEdit = (cap: Capaian) => {
     const ind = indikatorList.find(i => i.id === cap.indikator_id);
     if (!ind) return;
 
     // Check if user is restricted
-    if (currentUser.role === 'Kepala Unit' && ind.unit !== currentUser.unit) {
+    if (currentUser.role === 'Kepala Unit' && !isSameUnit(ind.unit, currentUser.unit)) {
       Swal.fire({
         icon: 'warning',
         title: 'Akses Terbatas',
@@ -370,7 +382,7 @@ export default function InputDataPage() {
     if (!ind) return false;
     // If Kepala Unit, only show history of their own unit
     if (currentUser.role === 'Kepala Unit') {
-      return ind.unit === currentUser.unit;
+      return isSameUnit(ind.unit, currentUser.unit);
     }
     return true; // Admin, Ka Seksi, Supervisor can see everything
   }).sort((a, b) => b.tahun - a.tahun || b.bulan - a.bulan);

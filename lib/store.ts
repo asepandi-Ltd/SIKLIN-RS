@@ -166,6 +166,7 @@ const defaultUsers: User[] = [
   { id: 'usr-3', nama: 'Ahmad Kurnia', email: 'ahmad@rsudalmulk.id', role: 'Kepala Unit', unit: 'Laboratorium' },
   { id: 'usr-4', nama: 'Hendra Wijaya', email: 'hendra@rsudalmulk.id', role: 'Supervisor', unit: 'Mutu' },
   { id: 'usr-5', nama: 'Siti Rahma', email: 'siti@rsudalmulk.id', role: 'Kepala Unit', unit: 'CSSD & Laundry' },
+  { id: 'usr-6', nama: 'Giandeno', email: 'giandeno@rsudalmulk.id', role: 'Kepala Unit', unit: 'IT Rumah Sakit / ITRS' },
 ];
 
 const defaultIndikator: Indikator[] = [
@@ -374,6 +375,38 @@ const defaultIndikator: Indikator[] = [
     satuan: '%',
     frekuensi: 'Bulanan',
     pic: 'Budi Humas',
+    status: true,
+    created_at: new Date('2026-01-01').toISOString(),
+  },
+  {
+    id: 'ind-it-01',
+    kode: 'PNM-IT-01',
+    nama: 'Response Time Penanganan Gangguan SIMRS & Jaringan < 15 Menit',
+    unit: 'IT Rumah Sakit / ITRS',
+    kategori: 'Penunjang Non Medis',
+    numerator: 'Jumlah laporan gangguan IT / SIMRS ditangani < 15 menit',
+    denominator: 'Jumlah total laporan gangguan IT / SIMRS',
+    formula: '(Laporan ditangani < 15 mnt ÷ Total laporan) × 100%',
+    target: 95,
+    satuan: '%',
+    frekuensi: 'Bulanan',
+    pic: 'Giandeno',
+    status: true,
+    created_at: new Date('2026-01-01').toISOString(),
+  },
+  {
+    id: 'ind-it-02',
+    kode: 'PNM-IT-02',
+    nama: 'Keandalan & Server Uptime SIMRS (Target 99%)',
+    unit: 'IT Rumah Sakit / ITRS',
+    kategori: 'Penunjang Non Medis',
+    numerator: 'Jumlah jam server & SIMRS berjalan lancar tanpa terhenti',
+    denominator: 'Jumlah jam operasional bulanan',
+    formula: '(Jam aktif ÷ Total jam operasional) × 100%',
+    target: 99,
+    satuan: '%',
+    frekuensi: 'Bulanan',
+    pic: 'Giandeno',
     status: true,
     created_at: new Date('2026-01-01').toISOString(),
   }
@@ -622,6 +655,72 @@ const defaultCapaian: Capaian[] = [
     eviden: 'Review_Google_BPJS_Mar_2026.pdf',
     status_submit: 'Submitted',
     created_at: new Date('2026-04-02').toISOString()
+  },
+  // IT Unit Capaian (Giandeno) - Maret 2026
+  {
+    id: 'cap-it-3-1',
+    indikator_id: 'ind-it-01',
+    user_id: 'usr-6',
+    bulan: 3,
+    tahun: 2026,
+    numerator: 48,
+    denominator: 50,
+    capaian: 96,
+    target: 95,
+    status: 'Tercapai',
+    keterangan: 'Penanganan laporan kendala SIMRS berjalan responsif.',
+    eviden: 'Eviden_IT_Maret_2026.pdf',
+    status_submit: 'Submitted',
+    created_at: new Date('2026-04-03T08:00:00Z').toISOString()
+  },
+  {
+    id: 'cap-it-3-2',
+    indikator_id: 'ind-it-02',
+    user_id: 'usr-6',
+    bulan: 3,
+    tahun: 2026,
+    numerator: 99.8,
+    denominator: 100,
+    capaian: 99.8,
+    target: 99,
+    status: 'Tercapai',
+    keterangan: 'Server utama & database SIMRS aktif tanpa gangguan.',
+    eviden: 'Uptime_IT_Maret_2026.pdf',
+    status_submit: 'Submitted',
+    created_at: new Date('2026-04-03T08:30:00Z').toISOString()
+  },
+  // IT Unit Capaian (Giandeno) - Juli 2026 (Bulan 7)
+  {
+    id: 'cap-it-7-1',
+    indikator_id: 'ind-it-01',
+    user_id: 'usr-6',
+    bulan: 7,
+    tahun: 2026,
+    numerator: 49,
+    denominator: 50,
+    capaian: 98,
+    target: 95,
+    status: 'Tercapai',
+    keterangan: 'Input capaian kinerja unit IT / ITRS bulan Juli disubmit oleh Giandeno.',
+    eviden: 'Eviden_IT_Juli_2026.pdf',
+    status_submit: 'Submitted',
+    created_at: new Date('2026-07-04T08:30:00Z').toISOString()
+  },
+  {
+    id: 'cap-it-7-2',
+    indikator_id: 'ind-it-02',
+    user_id: 'usr-6',
+    bulan: 7,
+    tahun: 2026,
+    numerator: 99.6,
+    denominator: 100,
+    capaian: 99.6,
+    target: 99,
+    status: 'Tercapai',
+    keterangan: 'Server dan jaringan SIMRS beroperasi stabil penuh selama bulan Juli.',
+    eviden: 'Server_Uptime_Juli_2026.pdf',
+    status_submit: 'Submitted',
+    created_at: new Date('2026-07-05T09:15:00Z').toISOString()
   }
 ];
 
@@ -727,12 +826,34 @@ export const useAppStore = create<AppState>((set, get) => {
 
   // Initial State Loading
   const currentUser = getStored('sipak_currentUser', defaultUsers[0]); // default is Super Admin Bono
-  const users = getStored('sipak_users', defaultUsers);
-  const indikatorList = getStored('sipak_indikator', defaultIndikator);
-  const capaianList = getStored('sipak_capaian', defaultCapaian);
+  const loadedUsers: User[] = getStored('sipak_users', defaultUsers);
+  const loadedIndikator: Indikator[] = getStored('sipak_indikator', defaultIndikator);
+  const loadedCapaian: Capaian[] = getStored('sipak_capaian', defaultCapaian);
   const supervisiList = getStored('sipak_supervisi', defaultSupervisi);
   const pengaturan = getStored('sipak_pengaturan', defaultPengaturan);
   const activityLogs = getStored('sipak_logs', defaultLogs);
+
+  // Merge defaults if missing in stored state
+  const users = [...loadedUsers];
+  defaultUsers.forEach(du => {
+    if (!users.some(u => u.id === du.id || u.nama.toLowerCase() === du.nama.toLowerCase())) {
+      users.push(du);
+    }
+  });
+
+  const indikatorList = [...loadedIndikator];
+  defaultIndikator.forEach(di => {
+    if (!indikatorList.some(i => i.id === di.id || i.kode === di.kode)) {
+      indikatorList.push(di);
+    }
+  });
+
+  const capaianList = [...loadedCapaian];
+  defaultCapaian.forEach(dc => {
+    if (!capaianList.some(c => c.id === dc.id || (c.indikator_id === dc.indikator_id && c.bulan === dc.bulan && c.tahun === dc.tahun))) {
+      capaianList.push(dc);
+    }
+  });
 
   // Initialise pending queue
   const pendingQueue = getStored('sipak_pending_queue', []);

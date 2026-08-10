@@ -86,15 +86,44 @@ export default function DashboardPage() {
   const mendekatiCapaian = submittedMonthlyCapaian.filter(c => c.status === 'Mendekati Target');
   const gagalCapaian = submittedMonthlyCapaian.filter(c => c.status === 'Tidak Tercapai');
 
+  // Master unit list to guarantee all 10 hospital units are represented
+  const MASTER_UNITS = [
+    "Laboratorium",
+    "Radiologi",
+    "Farmasi",
+    "Gizi",
+    "Rekam Medis",
+    "IT Rumah Sakit / ITRS",
+    "IPSRS",
+    "CSSD & Laundry",
+    "Humas dan Pemasaran",
+    "Kesehatan Lingkungan"
+  ];
+
+  const isSameUnit = (unitA: string, unitB: string) => {
+    if (!unitA || !unitB) return false;
+    if (unitA === unitB) return true;
+    const normA = unitA.toLowerCase().replace(/&/g, 'dan').trim();
+    const normB = unitB.toLowerCase().replace(/&/g, 'dan').trim();
+    if (normA === normB) return true;
+    if ((normA.includes('it') || normA.includes('itrs')) && (normB.includes('it') || normB.includes('itrs'))) return true;
+    if (normA.includes('humas') && normB.includes('humas')) return true;
+    if (normA.includes('cssd') && normB.includes('cssd')) return true;
+    return false;
+  };
+
   // Units with delayed input (Units that have indicators but no SUBMITTED capaian for selected month)
-  const allUnits = Array.from(new Set(indikatorList.filter(i => i.status).map(ind => ind.unit)));
+  const allUnits = Array.from(new Set([
+    ...MASTER_UNITS,
+    ...indikatorList.filter(i => i.status).map(ind => ind.unit)
+  ]));
   const submittedUnitsForMonth = Array.from(new Set(
     submittedMonthlyCapaian.map(c => {
       const ind = indikatorList.find(i => i.id === c.indikator_id);
       return ind && ind.status ? ind.unit : null;
     }).filter(Boolean)
   ));
-  const delayedUnits = allUnits.filter(u => !submittedUnitsForMonth.includes(u));
+  const delayedUnits = allUnits.filter(u => !submittedUnitsForMonth.some(sub => isSameUnit(sub as string, u)));
 
   // --- CHART 1: Monthly Average KPI Trend (Jan - Dec 2026) ---
   const monthsList = [
@@ -124,7 +153,7 @@ export default function DashboardPage() {
   // --- CHART 2: Peringkat Total Capaian Indikator Unit ---
   const unitTotalCapaianData = allUnits.map(unit => {
     // find indicators of this unit
-    const unitInds = indikatorList.filter(i => i.unit === unit && i.status);
+    const unitInds = indikatorList.filter(i => isSameUnit(i.unit, unit) && i.status);
     
     let totalKinerjaUnit = 0;
     unitInds.forEach(ind => {
@@ -181,7 +210,7 @@ export default function DashboardPage() {
 
   // --- KEPATUHAN PENGINPUTAN BERDASARKAN UNIT DI BAWAH TANGGAL 10 ---
   const monthlyUnitCompliance = allUnits.map(unit => {
-    const unitInds = indikatorList.filter(ind => ind.unit === unit && ind.status);
+    const unitInds = indikatorList.filter(ind => isSameUnit(ind.unit, unit) && ind.status);
     const totalCount = unitInds.length;
     
     if (totalCount === 0) {
@@ -209,7 +238,7 @@ export default function DashboardPage() {
         const dateObj = new Date(cap.created_at);
         const day = dateObj.getDate();
         tglSubmit = `${day} ${monthsNameMap[selectedBulan]}`;
-        if (day < 10) {
+        if (day <= 10) {
           status = 'PATUH';
           compliantCount++;
         } else {
