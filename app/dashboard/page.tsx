@@ -100,7 +100,7 @@ export default function DashboardPage() {
     "Kesehatan Lingkungan"
   ];
 
-  const isSameUnit = (unitA: string, unitB: string) => {
+  const isSameUnit = (unitA?: string, unitB?: string) => {
     if (!unitA || !unitB) return false;
     if (unitA === unitB) return true;
     const normA = unitA.toLowerCase().replace(/&/g, 'dan').trim();
@@ -109,6 +109,8 @@ export default function DashboardPage() {
     if ((normA.includes('it') || normA.includes('itrs')) && (normB.includes('it') || normB.includes('itrs'))) return true;
     if (normA.includes('humas') && normB.includes('humas')) return true;
     if (normA.includes('cssd') && normB.includes('cssd')) return true;
+    if (normA.includes('ipsrs') && normB.includes('ipsrs')) return true;
+    if (normA.includes('lingkungan') && normB.includes('lingkungan')) return true;
     return false;
   };
 
@@ -132,7 +134,13 @@ export default function DashboardPage() {
     { num: 3, label: 'Mar' },
     { num: 4, label: 'Apr' },
     { num: 5, label: 'Mei' },
-    { num: 6, label: 'Jun' }
+    { num: 6, label: 'Jun' },
+    { num: 7, label: 'Jul' },
+    { num: 8, label: 'Agu' },
+    { num: 9, label: 'Sep' },
+    { num: 10, label: 'Okt' },
+    { num: 11, label: 'Nov' },
+    { num: 12, label: 'Des' }
   ];
 
   const trendData = monthsList.map(m => {
@@ -257,7 +265,8 @@ export default function DashboardPage() {
       };
     });
     
-    const percentage = Math.round((compliantCount / totalCount) * 100);
+    const submittedCount = compliantCount + lateCount;
+    const percentage = totalCount > 0 ? Math.round((submittedCount / totalCount) * 100) : 0;
     
     return {
       unit,
@@ -265,6 +274,7 @@ export default function DashboardPage() {
       compliant: compliantCount,
       late: lateCount,
       missing: missingCount,
+      submitted: submittedCount,
       total: totalCount,
       details
     };
@@ -682,7 +692,7 @@ export default function DashboardPage() {
                   {monthlyUnitCompliance.map((entry, index) => {
                     let barColor = "#EF4444"; // Red (0%)
                     if (entry.percentage === 100) {
-                      barColor = "#10B981"; // Green (100%)
+                      barColor = entry.late > 0 ? "#F59E0B" : "#10B981"; // Green if all on time, Amber if late
                     } else if (entry.percentage > 0) {
                       barColor = "#F59E0B"; // Amber (partial)
                     }
@@ -715,7 +725,7 @@ export default function DashboardPage() {
                       <div className="truncate">
                         <p className="text-xs font-bold text-slate-800 truncate">{unitData.unit}</p>
                         <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
-                          {unitData.compliant} dari {unitData.total} Tepat Waktu
+                          {unitData.submitted} dari {unitData.total} Penginputan Selesai ({unitData.compliant} Tepat Waktu)
                         </p>
                       </div>
                     </div>
