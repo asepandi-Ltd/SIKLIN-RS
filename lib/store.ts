@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { supabase } from './supabaseClient';
 import {
   isSupabaseConfigured,
+  checkSupabaseReachability,
+  isSupabaseReachableCached,
+  setSupabaseReachability,
   dbGetUsers,
   dbUpsertUser,
   dbDeleteUser,
@@ -47,6 +50,8 @@ export interface Indikator {
   created_at: string;
   arah_target?: 'Semakin Tinggi' | 'Semakin Rendah';
   bobot?: number;
+  jenis_pengukuran?: 'Persentase' | 'Jumlah' | 'Durasi';
+  metode_agregasi?: 'Rata-rata' | 'Akumulasi' | 'Rasio' | 'Nilai Terakhir';
 }
 
 export interface Capaian {
@@ -1003,19 +1008,76 @@ const defaultLogs: ActivityLog[] = [
   { id: 'log-2', timestamp: new Date('2026-04-02T09:30:00Z').toISOString(), user_nama: 'Ahmad Kurnia', user_role: 'Kepala Unit', aktivitas: 'Menginput realisasi KPI Laboratorium untuk bulan Maret 2026.' }
 ];
 
+// Helper to get or infer measurement type
+export function getJenisPengukuran(ind?: Partial<Indikator>): 'Persentase' | 'Jumlah' | 'Durasi' {
+  if (ind?.jenis_pengukuran) return ind.jenis_pengukuran;
+  const satuan = (ind?.satuan || '').toLowerCase().trim();
+  if (satuan.includes('menit') || satuan.includes('jam') || satuan.includes('detik') || satuan.includes('hari')) {
+    return 'Durasi';
+  }
+  if (
+    satuan === 'kali' || 
+    satuan === 'laporan' || 
+    satuan === 'dokumen' || 
+    satuan === 'kegiatan' || 
+    satuan === 'kasus' || 
+    satuan === 'pasien' || 
+    satuan === 'sampel' || 
+    satuan === 'unit' || 
+    satuan === 'orang' || 
+    satuan === 'berkas' || 
+    satuan === 'lembar'
+  ) {
+    return 'Jumlah';
+  }
+  return 'Persentase';
+}
+
+// Helper to calculate raw value from numerator & denominator based on measurement type
+export function calculateCapaianValue(
+  numerator: number,
+  denominator: number,
+  ind?: Partial<Indikator>
+): number {
+  const jenis = getJenisPengukuran(ind);
+  if (jenis === 'Jumlah') {
+    // For Jumlah (count/absolute), if denominator is 1 or empty, the value is numerator
+    if (!denominator || denominator <= 1) {
+      return numerator;
+    }
+    return numerator;
+  }
+  if (jenis === 'Durasi') {
+    if (denominator > 0) {
+      return Math.round((numerator / denominator) * 100) / 100;
+    }
+    return numerator;
+  }
+  // Default: Persentase (ratio/percentage)
+  if (denominator > 0) {
+    return Math.round(((numerator / denominator) * 100) * 100) / 100;
+  }
+  return 0;
+}
+
 // Helper to calculate status
 export function determineStatus(
   capaian: number, 
   target: number, 
-  arah_target?: 'Semakin Tinggi' | 'Semakin Rendah'
+  arah_target?: 'Semakin Tinggi' | 'Semakin Rendah',
+  jenis_pengukuran?: 'Persentase' | 'Jumlah' | 'Durasi'
 ): 'Tercapai' | 'Mendekati Target' | 'Tidak Tercapai' {
+  const tolerance = (jenis_pengukuran === 'Jumlah' || jenis_pengukuran === 'Durasi') 
+    ? Math.max(1, target * 0.1) 
+    : 10;
+
   if (arah_target === 'Semakin Rendah') {
     if (capaian <= target) return 'Tercapai';
-    if (capaian <= target + 10) return 'Mendekati Target';
+    if (capaian <= target + tolerance) return 'Mendekati Target';
     return 'Tidak Tercapai';
   }
   if (capaian >= target) return 'Tercapai';
-  if (capaian >= target - 10) return 'Mendekati Target';
+  if (capaian >= target - tolerance) return 'Mendekati Target';
   return 'Tidak Tercapai';
 }
 
@@ -1065,12 +1127,32 @@ export const useAppStore = create<AppState>((set, get) => {
     }
   });
 
-  const capaianList = [...loadedCapaian];
+  const rawCapaianList = [...loadedCapaian];
   defaultCapaian.forEach(dc => {
-    if (!capaianList.some(c => c.id === dc.id || (c.indikator_id === dc.indikator_id && c.bulan === dc.bulan && c.tahun === dc.tahun))) {
-      capaianList.push(dc);
+    if (!rawCapaianList.some(c => c.id === dc.id || (c.indikator_id === dc.indikator_id && c.bulan === dc.bulan && c.tahun === dc.tahun))) {
+      rawCapaianList.push(dc);
     }
   });
+
+  // Deduplicate by indicator_id + bulan + tahun, keeping the latest / user-submitted record
+  const capaianMap = new Map<string, Capaian>();
+  rawCapaianList.forEach(c => {
+    const key = `${c.indikator_id}_${c.bulan}_${c.tahun}`;
+    const existing = capaianMap.get(key);
+    if (!existing) {
+      capaianMap.set(key, c);
+    } else {
+      const existingTime = new Date(existing.created_at || 0).getTime();
+      const currTime = new Date(c.created_at || 0).getTime();
+      if (currTime >= existingTime || (c.id.startsWith('cap-1') && !existing.id.startsWith('cap-1'))) {
+        capaianMap.set(key, c);
+      }
+    }
+  });
+  const capaianList = Array.from(capaianMap.values());
+  if (typeof window !== 'undefined') {
+    setStored('sipak_capaian', capaianList);
+  }
 
   // Initialise pending queue
   const pendingQueue = getStored('sipak_pending_queue', []);
@@ -1104,6 +1186,14 @@ export const useAppStore = create<AppState>((set, get) => {
 
       set({ isSyncing: true });
       try {
+        // Quick reachability verification before firing database queries
+        const isReachable = await checkSupabaseReachability();
+        if (!isReachable) {
+          console.info('Supabase host is unreachable. Running seamlessly in local storage mode.');
+          set({ isDbConnected: false, isSyncing: false });
+          return;
+        }
+
         // Run automatic migration of local storage data if not done yet
         const migrationDone = getStored('sipak_migration_done', 'false') === 'true';
         if (!migrationDone) {
@@ -1154,7 +1244,7 @@ export const useAppStore = create<AppState>((set, get) => {
               setStored('sipak_migration_done', 'true');
               console.log("Automatic migration of local data completed successfully!");
             } catch (migrationError) {
-              console.error("Local data automatic migration encountered errors, will continue sync:", migrationError);
+              console.warn("Local data automatic migration encountered errors, will continue sync:", migrationError);
             }
           }
         }
@@ -1186,6 +1276,13 @@ export const useAppStore = create<AppState>((set, get) => {
         set({ isDbConnected: false });
         return;
       }
+      
+      const isReachable = await checkSupabaseReachability();
+      if (!isReachable) {
+        set({ isDbConnected: false, isSyncing: false });
+        return;
+      }
+
       set({ isSyncing: true });
       try {
         const [usersDb, indDb, capDb, supDb, pengDb, logsDb] = await Promise.all([
@@ -1329,15 +1426,12 @@ export const useAppStore = create<AppState>((set, get) => {
     },
 
     processPendingQueue: async () => {
-      if (!isSupabaseConfigured() || !get().isOnline) {
+      if (!isSupabaseConfigured() || !get().isOnline || !isSupabaseReachableCached()) {
         return;
       }
       
       const queue = [...get().pendingQueue];
       if (queue.length === 0) {
-        if (!get().isDbConnected) {
-          set({ isDbConnected: true });
-        }
         return;
       }
 
@@ -1380,7 +1474,7 @@ export const useAppStore = create<AppState>((set, get) => {
             }
           }
         } catch (e) {
-          console.error("Failed to process queue item", op, e);
+          console.warn("Could not process queue item:", op.table, op.action, e);
         }
 
         if (success) {
@@ -1392,13 +1486,13 @@ export const useAppStore = create<AppState>((set, get) => {
         }
       }
 
-      if (get().pendingQueue.length === 0) {
+      if (get().pendingQueue.length === 0 && isSupabaseReachableCached()) {
         set({ isDbConnected: true });
       }
     },
 
     setupRealtimeSubscription: () => {
-      if (!isSupabaseConfigured()) return;
+      if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return;
       
       const channel = supabase
         .channel('public-db-changes')
@@ -1610,31 +1704,48 @@ export const useAppStore = create<AppState>((set, get) => {
 
     addCapaian: (cap) => {
       const ind = get().indikatorList.find(i => i.id === cap.indikator_id);
-      const isMenit = ind?.satuan?.toLowerCase()?.includes('menit') || false;
-      const val = isMenit 
-        ? (cap.numerator / cap.denominator) 
-        : (cap.numerator / cap.denominator) * 100;
-      const rounded = Math.round(val * 100) / 100;
-      const status = determineStatus(rounded, cap.target, ind?.arah_target);
+      const rounded = calculateCapaianValue(cap.numerator, cap.denominator, ind);
+      const status = determineStatus(rounded, cap.target, ind?.arah_target, ind ? getJenisPengukuran(ind) : undefined);
       
-      const newCap: Capaian = {
-        ...cap,
-        id: `cap-${Date.now()}`,
-        capaian: rounded,
-        status,
-        nilai: cap.nilai !== undefined ? cap.nilai : (status === 'Tercapai' ? 3 : status === 'Mendekati Target' ? 2 : 1),
-        created_at: new Date().toISOString()
-      };
+      const existingIndex = get().capaianList.findIndex(
+        c => c.indikator_id === cap.indikator_id && c.bulan === cap.bulan && c.tahun === cap.tahun
+      );
+
+      let updated: Capaian[];
+      let entryToSave: Capaian;
+
+      if (existingIndex >= 0) {
+        const existing = get().capaianList[existingIndex];
+        entryToSave = {
+          ...existing,
+          ...cap,
+          capaian: rounded,
+          status,
+          nilai: cap.nilai !== undefined ? cap.nilai : (status === 'Tercapai' ? 3 : status === 'Mendekati Target' ? 2 : 1),
+          created_at: new Date().toISOString()
+        };
+        updated = [...get().capaianList];
+        updated[existingIndex] = entryToSave;
+      } else {
+        entryToSave = {
+          ...cap,
+          id: `cap-${Date.now()}`,
+          capaian: rounded,
+          status,
+          nilai: cap.nilai !== undefined ? cap.nilai : (status === 'Tercapai' ? 3 : status === 'Mendekati Target' ? 2 : 1),
+          created_at: new Date().toISOString()
+        };
+        updated = [...get().capaianList, entryToSave];
+      }
       
-      const updated = [...get().capaianList, newCap];
       set({ capaianList: updated });
       setStored('sipak_capaian', updated);
-      get().addLog(`Menginput capaian KPI untuk indikator ID: ${cap.indikator_id} (Realisasi: ${rounded}${ind?.satuan || '%'})`);
+      get().addLog(`Menginput/memperbarui capaian KPI untuk indikator ID: ${cap.indikator_id} (Realisasi: ${rounded}${ind?.satuan || '%'})`);
       
-      dbUpsertCapaian(newCap).then((success) => {
-        if (!success) get().addToQueue('capaian_indikator', 'insert', newCap);
+      dbUpsertCapaian(entryToSave).then((success) => {
+        if (!success) get().addToQueue('capaian_indikator', existingIndex >= 0 ? 'update' : 'insert', entryToSave);
       }).catch(() => {
-        get().addToQueue('capaian_indikator', 'insert', newCap);
+        get().addToQueue('capaian_indikator', existingIndex >= 0 ? 'update' : 'insert', entryToSave);
       });
     },
 
@@ -1644,13 +1755,9 @@ export const useAppStore = create<AppState>((set, get) => {
         if (cap.id === id) {
           const merged = { ...cap, ...updated };
           const ind = get().indikatorList.find(i => i.id === merged.indikator_id);
-          const isMenit = ind?.satuan?.toLowerCase()?.includes('menit') || false;
           // Re-calculate
-          const val = isMenit 
-            ? (merged.numerator / merged.denominator) 
-            : (merged.numerator / merged.denominator) * 100;
-          merged.capaian = Math.round(val * 100) / 100;
-          merged.status = determineStatus(merged.capaian, merged.target, ind?.arah_target);
+          merged.capaian = calculateCapaianValue(merged.numerator, merged.denominator, ind);
+          merged.status = determineStatus(merged.capaian, merged.target, ind?.arah_target, ind ? getJenisPengukuran(ind) : undefined);
           if (updated.nilai === undefined) {
             // Keep existing merged.nilai or recalculate if none exists
             if (merged.nilai === undefined) {

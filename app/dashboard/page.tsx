@@ -41,7 +41,7 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 
 export default function DashboardPage() {
-  const { indikatorList, capaianList, supervisiList, currentUser, pengaturan } = useAppStore();
+  const { indikatorList, capaianList, currentUser, pengaturan } = useAppStore();
   const [mounted, setMounted] = useState(false);
   const [selectedBulan, setSelectedBulan] = useState(3); // March (seeded latest)
   const [selectedTahun, setSelectedTahun] = useState(2026);
@@ -518,7 +518,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Trend Line Chart */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+        <div className="lg:col-span-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col min-w-0">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-extrabold text-slate-800 text-sm">Tren Capaian Realisasi KPI Bulanan</h3>
@@ -527,8 +527,8 @@ export default function DashboardPage() {
             <span className="px-2 py-0.5 bg-teal-50 text-teal-600 text-[10px] font-black rounded uppercase">Rata-rata</span>
           </div>
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={256} minWidth={0}>
               <LineChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} fontWeight="bold" />
@@ -545,14 +545,14 @@ export default function DashboardPage() {
         </div>
 
         {/* Status Distribution Pie Chart */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between min-w-0">
           <div>
             <h3 className="font-extrabold text-slate-800 text-sm">Distribusi Status KPI</h3>
             <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Proporsi Bulan {monthsNameMap[selectedBulan]}</p>
           </div>
 
-          <div className="h-44 w-full relative flex items-center justify-center my-2">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-44 w-full min-w-0 relative flex items-center justify-center my-2">
+            <ResponsiveContainer width="100%" height={176} minWidth={0}>
               <PieChart>
                 <Pie
                   data={statusPieData}
@@ -608,7 +608,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Unit Performance Ranking */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col min-w-0">
           <div className="mb-4">
             <h3 className="font-extrabold text-slate-800 text-sm">Peringkat Total Capaian Indikator Unit</h3>
             <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
@@ -616,8 +616,8 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-56 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={224} minWidth={0}>
               <BarChart data={unitTotalCapaianData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="unit" stroke="#94a3b8" fontSize={9} tickLine={false} axisLine={false} fontWeight="bold" />
@@ -654,7 +654,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Kepatuhan Penginputan Bulanan Berdasarkan Unit */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between min-w-0">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="font-extrabold text-slate-800 text-sm">Persentase Kepatuhan Unit (Bulan Ini)</h3>
@@ -665,8 +665,8 @@ export default function DashboardPage() {
             </p>
           </div>
 
-          <div className="h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-56 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={224} minWidth={0}>
               <BarChart data={monthlyUnitCompliance}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                 <XAxis dataKey="unit" stroke="#94a3b8" fontSize={9} tickLine={false} axisLine={false} fontWeight="bold" />
@@ -786,78 +786,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Exception Monitoring (Late inputs & Active Supervisi) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Notifikasi Pemberitahuan Informasi Temuan Supervisi */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
-                  <Bell className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-slate-800 text-xs sm:text-sm">Notifikasi Informasi Temuan Supervisi</h3>
-                  <p className="text-[10px] text-slate-400 font-medium">Monitoring & Tindak Lanjut Mutu</p>
-                </div>
-              </div>
-              <Link href="/dashboard/supervisi" className="text-xs font-bold text-[#00A8A8] hover:underline flex items-center gap-0.5 shrink-0">
-                <span>Kelola</span>
-                <ArrowUpRight size={14} />
-              </Link>
-            </div>
-
-            <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-              {supervisiList.length === 0 ? (
-                <div className="text-center p-6 bg-slate-50 border border-slate-100 rounded-xl">
-                  <CheckCircle className="text-emerald-500 w-7 h-7 mx-auto mb-1.5" />
-                  <p className="text-xs font-bold text-slate-700">Belum Ada Temuan Supervisi</p>
-                  <p className="text-[10px] text-slate-400">Seluruh unit berjalan sesuai standar operasional.</p>
-                </div>
-              ) : (
-                supervisiList.map((sup) => (
-                  <div key={sup.id} className="p-3 bg-slate-50/80 hover:bg-slate-50 border border-gray-100 rounded-xl transition-all">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-[#00A8A8] shrink-0" />
-                        <p className="text-xs font-black text-slate-800">{sup.unit}</p>
-                      </div>
-                      <span className={`px-2 py-0.5 text-[9px] font-black rounded uppercase tracking-wide ${
-                        sup.status === 'Selesai' 
-                          ? 'bg-emerald-100 text-emerald-700' 
-                          : sup.status === 'Proses' 
-                            ? 'bg-amber-100 text-amber-700' 
-                            : 'bg-rose-100 text-rose-700'
-                      }`}>
-                        {sup.status}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed font-medium mb-1.5">
-                      &quot;{sup.temuan}&quot;
-                    </p>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 border-t border-gray-200/50 pt-1.5 mt-1">
-                      <span>Tanggal: <strong className="text-slate-600">{new Date(sup.tanggal).toLocaleDateString('id-ID')}</strong></span>
-                      <span>Target: <strong className="text-slate-600">{sup.deadline ? new Date(sup.deadline).toLocaleDateString('id-ID') : '-'}</strong></span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <Link
-              href="/dashboard/supervisi"
-              className="w-full block text-center py-2 bg-slate-50 hover:bg-slate-100 text-[#00A8A8] text-xs font-extrabold rounded-lg transition-colors border border-gray-200/80"
-            >
-              Lihat Seluruh Hasil & Tindak Lanjut Supervisi Mutu &rarr;
-            </Link>
-          </div>
-        </div>
-
-        {/* Capaian Kepuasan Pelanggan & Rating Google/KESSAN */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
+      {/* Capaian Kepuasan Pelanggan & Rating Google/KESSAN */}
+      <div className="w-full">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex flex-col justify-between">
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-gray-100">
               <div>

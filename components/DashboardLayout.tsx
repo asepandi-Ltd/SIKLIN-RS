@@ -35,10 +35,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen bg-[#F3F4F6] text-gray-800 flex overflow-hidden">
       <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} isMobile={isMobile} />
       
-      <main className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen && !isMobile ? "ml-64" : !isMobile ? "ml-20" : "ml-0"}`}>
+      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarOpen && !isMobile ? "ml-64" : !isMobile ? "ml-20" : "ml-0"}`}>
         <Topbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} isMobile={isMobile} />
         
-        <div className="p-8 flex-1 flex flex-col space-y-6 overflow-y-auto">
+        <div className="p-8 flex-1 flex flex-col space-y-6 overflow-y-auto min-w-0 w-full">
           <AnimatePresence mode="wait">
             <motion.div
                key="page-content"
@@ -46,7 +46,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                animate={{ opacity: 1, y: 0 }}
                exit={{ opacity: 0, y: -10 }}
                transition={{ duration: 0.3 }}
-               className="flex-1 flex flex-col space-y-6"
+               className="flex-1 flex flex-col space-y-6 min-w-0 w-full"
             >
               {children}
             </motion.div>

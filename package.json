@@ -3,18 +3,23 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0 -p 3030",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -H 0.0.0.0 -p 3030",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
     "@tailwindcss/postcss": "^4.1.11",
+    "@types/file-saver": "^2.0.7",
     "axios": "^1.12.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "docx": "^9.15.1",
+    "file-saver": "^2.0.5",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "lucide-react": "^0.540.0",
     "motion": "^12.23.12",
     "next": "^14.2.15",
@@ -26,6 +31,7 @@
     "sweetalert2": "^11.23.0",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.11",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.14"
   },
   "devDependencies": {

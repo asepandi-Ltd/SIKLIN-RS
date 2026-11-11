@@ -14,7 +14,6 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
   Sparkles,
   Lock,
   TrendingUp
@@ -84,18 +83,6 @@ export function Sidebar({ isOpen, setIsOpen, isMobile }: SidebarProps) {
       roles: ["Super Admin", "Kepala Seksi", "Kepala Unit", "Supervisor"]
     },
     { 
-      name: "Laporan", 
-      href: "/dashboard/laporan", 
-      icon: <FileText size={20} />,
-      roles: ["Super Admin", "Kepala Seksi", "Kepala Unit", "Supervisor"]
-    },
-    { 
-      name: "Monitoring Supervisi", 
-      href: "/dashboard/supervisi", 
-      icon: <ClipboardList size={20} />,
-      roles: ["Super Admin", "Supervisor", "Kepala Seksi", "Kepala Unit"]
-    },
-    { 
       name: "Capaian Indikator Unit", 
       href: "/dashboard/capaian-unit", 
       icon: <TrendingUp size={20} />,
@@ -108,6 +95,13 @@ export function Sidebar({ isOpen, setIsOpen, isMobile }: SidebarProps) {
       roles: ["Super Admin", "Kepala Seksi", "Kepala Unit", "Supervisor"] // view profile for all, modify restricted
     },
   ];
+
+  const laporanItem = { 
+    name: "Laporan", 
+    href: "/dashboard/laporan", 
+    icon: <FileText size={20} />,
+    roles: ["Super Admin", "Kepala Seksi", "Kepala Unit", "Supervisor"]
+  };
 
   if (!mounted || !currentUser) {
     return (
@@ -199,15 +193,73 @@ export function Sidebar({ isOpen, setIsOpen, isMobile }: SidebarProps) {
           })}
         </nav>
 
-        {/* Sidebar Footer (User session details & Logout) */}
-        <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-900/20">
+        {/* Sidebar Footer (Laporan in Boxed Container & Logout) */}
+        <div className="p-3 border-t border-slate-800 shrink-0 bg-slate-900/40 space-y-2.5">
+          {/* Kotak Kurung Khusus: Menu Laporan */}
+          <div className="rounded-2xl border-2 border-teal-500/40 bg-teal-950/40 p-1 shadow-sm">
+            {(() => {
+              const isLaporanActive = pathname === laporanItem.href || (pathname && pathname.startsWith(laporanItem.href));
+              const allowed = isAllowed(laporanItem.roles);
+
+              return (
+                <Link
+                  href={allowed ? laporanItem.href : "#"}
+                  onClick={(e) => {
+                    if (!allowed) {
+                      e.preventDefault();
+                      Swal.fire({
+                        icon: 'warning',
+                        title: 'Akses Terbatas',
+                        text: `Halaman ini hanya dapat diakses oleh peran: ${laporanItem.roles.join(', ')}.`,
+                        confirmButtonColor: '#00A8A8',
+                      });
+                      return;
+                    }
+                    if (isMobile) setIsOpen(false);
+                  }}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-150 group text-sm ${
+                    isLaporanActive
+                      ? "bg-teal-500/25 text-teal-300 font-bold border-l-4 border-teal-400 pl-2 shadow-xs"
+                      : allowed
+                        ? "text-teal-200 hover:bg-teal-900/50 hover:text-white"
+                        : "text-slate-600 cursor-not-allowed"
+                  }`}
+                  title={(!isOpen && !isMobile) ? laporanItem.name : undefined}
+                >
+                  <div className="flex items-center space-x-3 truncate">
+                    <div className={`shrink-0 ${isLaporanActive ? "text-teal-300" : "text-teal-400 group-hover:text-white"}`}>
+                      {laporanItem.icon}
+                    </div>
+                    {(isOpen || isMobile) && (
+                      <span className="truncate font-black tracking-wide">
+                        {laporanItem.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {(!allowed && (isOpen || isMobile)) ? (
+                    <Lock size={12} className="text-slate-600" />
+                  ) : (isOpen || isMobile) ? (
+                    <span className="px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/40 rounded-md">
+                      Tahunan
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })()}
+          </div>
+
+          {/* Garis Pembatas Jelas Antara Laporan dan Keluar */}
+          <div className="border-t border-slate-800/80 my-1" />
+
+          {/* Tombol Keluar (Logout) */}
           <button
             onClick={handleLogout}
-            className="flex items-center space-x-3 text-slate-400 hover:text-red-400 hover:bg-red-500/5 w-full px-3.5 py-2.5 rounded-xl transition-colors text-sm"
-            title={(!isOpen && !isMobile) ? "Logout" : undefined}
+            className="flex items-center space-x-3 text-slate-400 hover:text-red-400 hover:bg-red-500/10 w-full px-3.5 py-2.5 rounded-xl transition-colors text-sm font-semibold cursor-pointer group"
+            title={(!isOpen && !isMobile) ? "Keluar" : undefined}
           >
-            <LogOut size={20} className="shrink-0 text-slate-400 group-hover:text-red-400" />
-            {(isOpen || isMobile) && <span className="font-semibold">Keluar</span>}
+            <LogOut size={20} className="shrink-0 text-slate-400 group-hover:text-red-400 transition-colors" />
+            {(isOpen || isMobile) && <span>Keluar</span>}
           </button>
 
           {/* Toggle button on Desktop */}

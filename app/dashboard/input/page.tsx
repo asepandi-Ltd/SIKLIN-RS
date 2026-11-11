@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAppStore, Capaian, Indikator, determineStatus } from "@/lib/store";
+import { useAppStore, Capaian, Indikator, determineStatus, getJenisPengukuran, calculateCapaianValue } from "@/lib/store";
 import { 
   Plus, 
   Search, 
@@ -48,6 +48,11 @@ export default function InputDataPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
 
+  // History Filter State
+  const [historyFilterBulan, setHistoryFilterBulan] = useState<string>("Semua Bulan");
+  const [historyFilterUnit, setHistoryFilterUnit] = useState<string>("Semua Unit");
+  const [historySearch, setHistorySearch] = useState<string>("");
+
   // Edit State (when editing previous inputs)
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formNilai, setFormNilai] = useState<number>(3);
@@ -55,17 +60,15 @@ export default function InputDataPage() {
 
   // Retrieve selected indicator metadata
   const activeIndikator = indikatorList.find(i => i.id === selectedIndikatorId);
+  const activeJenis = activeIndikator ? getJenisPengukuran(activeIndikator) : 'Persentase';
 
   // Calculate live achievement
-  const isMenit = activeIndikator?.satuan?.toLowerCase()?.includes("menit") || false;
-  const calculatedCapaian = typeof numeratorVal === "number" && typeof denominatorVal === "number" && denominatorVal > 0
-    ? (isMenit 
-       ? Math.round((numeratorVal / denominatorVal) * 100) / 100 
-       : Math.round(((numeratorVal / denominatorVal) * 100) * 100) / 100)
+  const calculatedCapaian = typeof numeratorVal === "number" && (activeJenis === 'Jumlah' ? true : (typeof denominatorVal === "number" && denominatorVal > 0))
+    ? calculateCapaianValue(numeratorVal, typeof denominatorVal === "number" ? denominatorVal : 1, activeIndikator)
     : 0;
 
   const targetValue = activeIndikator?.target !== undefined ? activeIndikator.target : 95;
-  const currentStatus = determineStatus(calculatedCapaian, targetValue, activeIndikator?.arah_target);
+  const currentStatus = determineStatus(calculatedCapaian, targetValue, activeIndikator?.arah_target, activeJenis);
 
   const canEditScore = currentUser?.role === 'Super Admin' || currentUser?.role === 'Kepala Seksi' || currentUser?.role === 'Supervisor';
 
@@ -234,41 +237,46 @@ export default function InputDataPage() {
       });
       return;
     }
-    if (numeratorVal === "" || denominatorVal === "") {
+    if (numeratorVal === "") {
       Swal.fire({
         icon: 'warning',
         title: 'Lengkapi Data',
-        text: 'Numerator dan denominator wajib diisi!',
+        text: 'Realisasi / Pembilang wajib diisi!',
         confirmButtonColor: '#00A8A8'
       });
       return;
     }
-    if (Number(denominatorVal) <= 0) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Input Tidak Valid',
-        text: 'Denominator harus bernilai lebih besar dari 0!',
-        confirmButtonColor: '#00A8A8'
-      });
-      return;
+    const finalDenom = activeJenis === 'Jumlah'
+      ? (denominatorVal === "" || Number(denominatorVal) <= 0 ? 1 : Number(denominatorVal))
+      : Number(denominatorVal);
+
+    if (activeJenis !== 'Jumlah') {
+      if (denominatorVal === "") {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Lengkapi Data',
+          text: 'Denominator (penyebut) wajib diisi untuk pengukuran persentase atau durasi!',
+          confirmButtonColor: '#00A8A8'
+        });
+        return;
+      }
+      if (Number(denominatorVal) <= 0) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Input Tidak Valid',
+          text: 'Denominator harus bernilai lebih besar dari 0!',
+          confirmButtonColor: '#00A8A8'
+        });
+        return;
+      }
     }
 
-    const isDuplicate = capaianList.some(c => 
+    const existingEntry = capaianList.find(c => 
       c.indikator_id === selectedIndikatorId && 
       c.bulan === Number(bulan) && 
       c.tahun === Number(tahun) && 
       c.id !== editingId
     );
-
-    if (isDuplicate) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Data Sudah Ada',
-        text: `Data capaian untuk indikator ini pada periode ${monthsMap[bulan]} ${tahun} sudah diinput sebelumnya! Silakan edit data lama atau pilih periode lain.`,
-        confirmButtonColor: '#00A8A8'
-      });
-      return;
-    }
 
     const payload = {
       indikator_id: selectedIndikatorId,
@@ -276,7 +284,7 @@ export default function InputDataPage() {
       bulan: Number(bulan),
       tahun: Number(tahun),
       numerator: Number(numeratorVal),
-      denominator: Number(denominatorVal),
+      denominator: finalDenom,
       target: targetValue,
       keterangan,
       eviden: evidenFile || "Eviden_Default_Upload.pdf",
@@ -284,12 +292,14 @@ export default function InputDataPage() {
       nilai: formNilai
     };
 
-    if (editingId) {
-      updateCapaian(editingId, payload);
+    const targetId = editingId || existingEntry?.id;
+
+    if (targetId) {
+      updateCapaian(targetId, payload);
       Swal.fire({
         icon: 'success',
-        title: statusSubmit === 'Submitted' ? 'Berhasil Dikirim' : 'Berhasil Disimpan',
-        text: statusSubmit === 'Submitted' ? 'Capaian KPI terkirim untuk verifikasi!' : 'Draf berhasil diperbarui.',
+        title: statusSubmit === 'Submitted' ? 'Berhasil Diperbarui' : 'Draf Disimpan',
+        text: statusSubmit === 'Submitted' ? 'Capaian KPI berhasil diperbarui dan disubmit!' : 'Draf berhasil diperbarui.',
         showConfirmButton: false,
         timer: 1500
       });
@@ -380,11 +390,32 @@ export default function InputDataPage() {
   const userHistoryList = capaianList.filter(cap => {
     const ind = indikatorList.find(i => i.id === cap.indikator_id);
     if (!ind) return false;
-    // If Kepala Unit, only show history of their own unit
+    
+    // Role check: If Kepala Unit, only show history of their own unit
     if (currentUser.role === 'Kepala Unit') {
-      return isSameUnit(ind.unit, currentUser.unit);
+      if (!isSameUnit(ind.unit, currentUser.unit)) return false;
+    } else {
+      // Unit filter for Admin / Kepala Seksi
+      if (historyFilterUnit !== "Semua Unit" && !isSameUnit(ind.unit, historyFilterUnit)) {
+        return false;
+      }
     }
-    return true; // Admin, Ka Seksi, Supervisor can see everything
+
+    // Bulan filter
+    if (historyFilterBulan !== "Semua Bulan" && cap.bulan !== Number(historyFilterBulan)) {
+      return false;
+    }
+
+    // Search filter (by indicator name or code)
+    if (historySearch.trim() !== "") {
+      const q = historySearch.toLowerCase();
+      const matchName = ind.nama.toLowerCase().includes(q);
+      const matchCode = ind.kode.toLowerCase().includes(q);
+      const matchUnit = ind.unit.toLowerCase().includes(q);
+      if (!matchName && !matchCode && !matchUnit) return false;
+    }
+
+    return true;
   }).sort((a, b) => b.tahun - a.tahun || b.bulan - a.bulan);
 
   return (
@@ -478,41 +509,79 @@ export default function InputDataPage() {
                 Belum ada Indikator aktif untuk unit ini. Daftarkan di menu &quot;Profil Indikator&quot; dahulu.
               </p>
             )}
+
+            {/* Existing Entry Alert */}
+            {selectedIndikatorId && (() => {
+              const existingRec = capaianList.find(c => 
+                c.indikator_id === selectedIndikatorId && 
+                c.bulan === Number(bulan) && 
+                c.tahun === Number(tahun)
+              );
+              if (!existingRec || editingId === existingRec.id) return null;
+              return (
+                <div className="p-3 bg-amber-50/80 border border-amber-200/80 rounded-xl flex items-center justify-between gap-2 text-xs animate-in fade-in">
+                  <div className="flex items-center gap-2 text-amber-800 text-[11px]">
+                    <AlertTriangle size={15} className="text-amber-600 shrink-0" />
+                    <span>
+                      Periode <strong>{monthsMap[bulan]} {tahun}</strong> sudah memiliki data tercatat (Realisasi: <strong>{existingRec.capaian}{activeIndikator?.satuan || '%'}</strong>). Inputan baru akan otomatis memperbarui data ini.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startEdit(existingRec)}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[10px] shrink-0 transition-colors cursor-pointer"
+                  >
+                    Muat Nilai
+                  </button>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Numerator & Denominator Form Box */}
           {activeIndikator && (
             <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-4 animate-in fade-in duration-200">
-              <div className="border-b pb-2">
-                <span className="text-[10px] font-black px-2 py-0.5 bg-teal-50 text-teal-800 rounded uppercase">
-                  Target KPI: {activeIndikator.target}{activeIndikator.satuan}
-                </span>
-                <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase">Formula: {activeIndikator.formula}</p>
+              <div className="border-b pb-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-black px-2 py-0.5 bg-teal-50 text-teal-800 rounded uppercase">
+                    Target KPI: {activeIndikator.target}{activeIndikator.satuan}
+                  </span>
+                  <span className="ml-2 text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-700 rounded">
+                    Jenis: {activeJenis}
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Formula: {activeIndikator.formula}</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className={`grid gap-4 ${activeJenis === 'Jumlah' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}`}>
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-wide">Numerator (Pembilang)</label>
+                  <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-wide">
+                    {activeJenis === 'Jumlah' ? 'Jumlah Realisasi (Angka Absolut)' : 'Numerator (Pembilang)'}
+                  </label>
                   <p className="text-[9px] text-slate-400 font-medium leading-tight mb-1">{activeIndikator.numerator}</p>
                   <input
                     type="number"
                     min={0}
                     value={numeratorVal}
                     onChange={(e) => setNumeratorVal(e.target.value !== "" ? Number(e.target.value) : "")}
-                    placeholder="Masukkan angka pembilang"
+                    placeholder={activeJenis === 'Jumlah' ? `Masukkan jumlah ${activeIndikator.satuan}` : "Masukkan angka pembilang"}
                     className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-wide">Denominator (Penyebut)</label>
-                  <p className="text-[9px] text-slate-400 font-medium leading-tight mb-1">{activeIndikator.denominator}</p>
+                  <label className="block text-[10px] font-extrabold text-slate-600 uppercase tracking-wide">
+                    {activeJenis === 'Jumlah' ? 'Target / Pembanding (Opsional)' : 'Denominator (Penyebut)'}
+                  </label>
+                  <p className="text-[9px] text-slate-400 font-medium leading-tight mb-1">
+                    {activeJenis === 'Jumlah' ? (activeIndikator.denominator || 'Standar perbandingan bulanan') : activeIndikator.denominator}
+                  </p>
                   <input
                     type="number"
                     min={0}
                     value={denominatorVal}
                     onChange={(e) => setDenominatorVal(e.target.value !== "" ? Number(e.target.value) : "")}
-                    placeholder="Masukkan angka penyebut"
+                    placeholder={activeJenis === 'Jumlah' ? "Default: 1 (atau target bulanan)" : "Masukkan angka penyebut"}
                     className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8]"
                   />
                 </div>
@@ -521,7 +590,7 @@ export default function InputDataPage() {
           )}
 
           {/* Calculations Outcome Feedback */}
-          {activeIndikator && typeof numeratorVal === "number" && typeof denominatorVal === "number" && denominatorVal > 0 && (
+          {activeIndikator && typeof numeratorVal === "number" && (activeJenis === 'Jumlah' || (typeof denominatorVal === "number" && denominatorVal > 0)) && (
             <div className={`p-4 rounded-2xl border flex items-center justify-between transition-all ${
               currentStatus === 'Tercapai' 
                 ? 'bg-green-50/50 border-green-200 text-green-800' 
@@ -723,7 +792,7 @@ export default function InputDataPage() {
       {/* History Log Column */}
       <div className="lg:col-span-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6 flex flex-col justify-between">
         <div>
-          <div className="flex items-center justify-between mb-4 border-b pb-3">
+          <div className="flex items-center justify-between mb-3 border-b pb-3">
             <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-1.5">
               <History className="text-[#00A8A8] w-4.5 h-4.5 shrink-0" />
               <span>Riwayat Pengisian KPI</span>
@@ -731,6 +800,78 @@ export default function InputDataPage() {
             <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[9px] font-black rounded uppercase">
               {currentUser.role === 'Kepala Unit' ? 'Unit Anda' : 'Semua Unit'}
             </span>
+          </div>
+
+          {/* Quick Filter Box for Riwayat (Bulan & Unit) */}
+          <div className="mb-3.5 p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+            <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
+              <span>Filter Riwayat</span>
+              {(historyFilterBulan !== "Semua Bulan" || historyFilterUnit !== "Semua Unit" || historySearch !== "") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHistoryFilterBulan("Semua Bulan");
+                    setHistoryFilterUnit("Semua Unit");
+                    setHistorySearch("");
+                  }}
+                  className="text-teal-600 hover:underline cursor-pointer lowercase font-bold"
+                >
+                  reset filter
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {/* Filter Bulan */}
+              <div>
+                <select
+                  value={historyFilterBulan}
+                  onChange={(e) => setHistoryFilterBulan(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 outline-none focus:ring-1 focus:ring-[#00A8A8]"
+                >
+                  <option value="Semua Bulan">Semua Bulan</option>
+                  {Object.entries(monthsMap).map(([num, name]) => (
+                    <option key={num} value={num}>{name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter Unit (jika Super Admin / Kepala Seksi / Supervisor) */}
+              <div>
+                <select
+                  value={historyFilterUnit}
+                  onChange={(e) => setHistoryFilterUnit(e.target.value)}
+                  disabled={currentUser.role === 'Kepala Unit'}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 outline-none focus:ring-1 focus:ring-[#00A8A8] disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="Semua Unit">Semua Unit</option>
+                  {unitsList.map(u => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Pencarian cepat nama / kode */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Cari kode atau nama KPI..."
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                className="w-full px-2.5 py-1.5 pl-7 bg-white border border-slate-200 rounded-lg text-[11px] text-slate-800 placeholder-slate-400 outline-none focus:ring-1 focus:ring-[#00A8A8]"
+              />
+              <Search size={12} className="absolute left-2.5 top-2 text-slate-400 pointer-events-none" />
+              {historySearch && (
+                <button
+                  type="button"
+                  onClick={() => setHistorySearch("")}
+                  className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3.5 max-h-[500px] overflow-y-auto pr-1">

@@ -56,6 +56,8 @@ export default function ProfilIndikatorPage() {
   const [formFormula, setFormFormula] = useState("");
   const [formTarget, setFormTarget] = useState(95);
   const [formArahTarget, setFormArahTarget] = useState<'Semakin Tinggi' | 'Semakin Rendah'>('Semakin Tinggi');
+  const [formJenisPengukuran, setFormJenisPengukuran] = useState<'Persentase' | 'Jumlah' | 'Durasi'>('Persentase');
+  const [formMetodeAgregasi, setFormMetodeAgregasi] = useState<'Rata-rata' | 'Akumulasi' | 'Rasio' | 'Nilai Terakhir'>('Rasio');
   const [formSatuan, setFormSatuan] = useState<string>("%");
   const [formFrekuensi, setFormFrekuensi] = useState("Bulanan");
   const [formPic, setFormPic] = useState("");
@@ -114,6 +116,8 @@ export default function ProfilIndikatorPage() {
     setFormFormula("");
     setFormTarget(95);
     setFormArahTarget('Semakin Tinggi');
+    setFormJenisPengukuran('Persentase');
+    setFormMetodeAgregasi('Rasio');
     setFormSatuan("%");
     setFormFrekuensi("Bulanan");
     
@@ -160,6 +164,8 @@ export default function ProfilIndikatorPage() {
     setFormFormula(ind.formula);
     setFormTarget(ind.target);
     setFormArahTarget(ind.arah_target || 'Semakin Tinggi');
+    setFormJenisPengukuran(ind.jenis_pengukuran || (ind.satuan?.toLowerCase().includes('menit') ? 'Durasi' : ind.satuan === '%' ? 'Persentase' : 'Jumlah'));
+    setFormMetodeAgregasi(ind.metode_agregasi || (ind.satuan === '%' ? 'Rasio' : ind.satuan?.toLowerCase().includes('menit') ? 'Rata-rata' : 'Akumulasi'));
     setFormSatuan(ind.satuan);
     setFormFrekuensi(ind.frekuensi);
     setFormPic(ind.pic);
@@ -190,6 +196,8 @@ export default function ProfilIndikatorPage() {
       formula: formFormula || "(Numerator ÷ Denominator) × 100%",
       target: Number(formTarget),
       arah_target: formArahTarget,
+      jenis_pengukuran: formJenisPengukuran,
+      metode_agregasi: formMetodeAgregasi,
       satuan: formSatuan,
       frekuensi: formFrekuensi,
       pic: formPic,
@@ -475,7 +483,7 @@ export default function ProfilIndikatorPage() {
               <tr className="bg-slate-50/20 border-b border-gray-100 text-[10px] uppercase tracking-widest text-slate-400 font-extrabold">
                 <th className="p-4 pl-6">Kode</th>
                 <th className="p-4">Nama Indikator KPI</th>
-                <th className="p-4">Unit / Divisi</th>
+                <th className="p-4">Unit</th>
                 <th className="p-4">Formula Hitung</th>
                 <th className="p-4 text-center">Target</th>
                 <th className="p-4">Kepala Unit</th>
@@ -503,18 +511,11 @@ export default function ProfilIndikatorPage() {
                     {/* Nama */}
                     <td className="p-4 text-slate-700 font-medium max-w-sm">
                       <p className="font-extrabold text-slate-800 leading-normal">{ind.nama}</p>
-                      <div className="mt-1 text-[10px] text-slate-400 font-medium space-y-0.5">
-                        <p>&bull; Num: {ind.numerator}</p>
-                        <p>&bull; Den: {ind.denominator}</p>
-                      </div>
                     </td>
 
                     {/* Unit */}
                     <td className="p-4 whitespace-nowrap">
                       <p className="font-bold text-slate-700">{ind.unit}</p>
-                      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
-                        {ind.kategori}
-                      </span>
                     </td>
 
                     {/* Formula */}
@@ -527,8 +528,13 @@ export default function ProfilIndikatorPage() {
                       <span className="inline-block px-2.5 py-1 bg-teal-50 text-teal-800 rounded-md font-black text-xs">
                         {ind.target}{ind.satuan}
                       </span>
+                      <div className="mt-1 flex items-center justify-center gap-1">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-slate-100 text-slate-600">
+                          {ind.jenis_pengukuran || (ind.satuan?.toLowerCase().includes('menit') ? 'Durasi' : ind.satuan === '%' ? 'Persentase' : 'Jumlah')}
+                        </span>
+                      </div>
                       {ind.arah_target === 'Semakin Rendah' && (
-                        <div className="mt-1 text-[9px] text-amber-600 font-extrabold uppercase tracking-tight">
+                        <div className="mt-0.5 text-[9px] text-amber-600 font-extrabold uppercase tracking-tight">
                           Semakin Kecil &darr;
                         </div>
                       )}
@@ -747,8 +753,89 @@ export default function ProfilIndikatorPage() {
                 />
               </div>
 
-              {/* Row 4: Target, Satuan, Frekuensi */}
-              <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+              {/* Row 4: Jenis Pengukuran, Satuan, Target, Arah Target, Metode Agregasi */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-3.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-extrabold text-teal-800 uppercase tracking-wider">Jenis Pengukuran</label>
+                  <select
+                    value={formJenisPengukuran}
+                    onChange={(e) => {
+                      const val = e.target.value as 'Persentase' | 'Jumlah' | 'Durasi';
+                      setFormJenisPengukuran(val);
+                      if (val === 'Persentase') {
+                        setFormSatuan('%');
+                        setFormMetodeAgregasi('Rasio');
+                      } else if (val === 'Durasi') {
+                        setFormSatuan('Menit');
+                        setFormMetodeAgregasi('Rata-rata');
+                      } else {
+                        setFormSatuan('Kali');
+                        setFormMetodeAgregasi('Akumulasi');
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-teal-300 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8]"
+                  >
+                    <option value="Persentase">Persentase (%) - Rasio Capaian</option>
+                    <option value="Jumlah">Jumlah (Angka Absolut / Frekuensi)</option>
+                    <option value="Durasi">Durasi (Waktu Tunggu / Respons)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-extrabold text-teal-800 uppercase tracking-wider">Satuan</label>
+                  <select
+                    value={
+                      formSatuan === "%" || formSatuan === "Menit" || formSatuan === "Kali" || formSatuan === "Laporan" || formSatuan === "Dokumen" || formSatuan === "Pasien"
+                        ? formSatuan
+                        : "Lainnya"
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val !== "Lainnya") {
+                        setFormSatuan(val);
+                      } else {
+                        setFormSatuan("");
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8]"
+                  >
+                    <option value="%">% (Persen)</option>
+                    <option value="Menit">Menit</option>
+                    <option value="Kali">Kali</option>
+                    <option value="Laporan">Laporan</option>
+                    <option value="Dokumen">Dokumen</option>
+                    <option value="Pasien">Pasien</option>
+                    <option value="Lainnya">Lainnya (Ketik Manual...)</option>
+                  </select>
+                  {formSatuan !== "%" && formSatuan !== "Menit" && formSatuan !== "Kali" && formSatuan !== "Laporan" && formSatuan !== "Dokumen" && formSatuan !== "Pasien" && (
+                    <input
+                      type="text"
+                      required
+                      value={formSatuan}
+                      onChange={(e) => setFormSatuan(e.target.value)}
+                      placeholder="Masukkan satuan kustom..."
+                      className="w-full px-3 py-2 mt-1 bg-white border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8] focus:bg-white transition-all"
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-extrabold text-teal-800 uppercase tracking-wider">Metode Agregasi Tahunan</label>
+                  <select
+                    value={formMetodeAgregasi}
+                    onChange={(e) => setFormMetodeAgregasi(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8]"
+                  >
+                    <option value="Rasio">Rasio (Total Num ÷ Total Den)</option>
+                    <option value="Akumulasi">Akumulasi (Penjumlahan / Total Kunjungan)</option>
+                    <option value="Rata-rata">Rata-rata Bulanan</option>
+                    <option value="Nilai Terakhir">Nilai Terakhir (Bulan Akhir)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 5: Target, Arah Target, Frekuensi, PIC */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div className="space-y-1">
                   <label className="block text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Target Kinerja</label>
                   <input
@@ -757,7 +844,7 @@ export default function ProfilIndikatorPage() {
                     min={0}
                     value={formTarget}
                     onChange={(e) => setFormTarget(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8] focus:bg-white transition-all"
+                    className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8] focus:bg-white transition-all font-bold"
                   />
                 </div>
 
@@ -777,36 +864,6 @@ export default function ProfilIndikatorPage() {
                     <option value="Semakin Tinggi">Semakin Tinggi &uarr;</option>
                     <option value="Semakin Rendah">Semakin Kecil / 0 &darr;</option>
                   </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Satuan</label>
-                  <select
-                    value={formSatuan === "%" || formSatuan === "Menit" ? formSatuan : "Lainnya"}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val !== "Lainnya") {
-                        setFormSatuan(val);
-                      } else {
-                        setFormSatuan("");
-                      }
-                    }}
-                    className="w-full px-3 py-2 bg-slate-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8]"
-                  >
-                    <option value="%">% (Persentase)</option>
-                    <option value="Menit">Menit (Rata-rata Menit)</option>
-                    <option value="Lainnya">Lainnya (Ketik Manual...)</option>
-                  </select>
-                  {formSatuan !== "%" && formSatuan !== "Menit" && (
-                    <input
-                      type="text"
-                      required
-                      value={formSatuan}
-                      onChange={(e) => setFormSatuan(e.target.value)}
-                      placeholder="Masukkan satuan kustom..."
-                      className="w-full px-3 py-2 mt-1 bg-slate-50 border border-gray-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#00A8A8] focus:bg-white transition-all"
-                    />
-                  )}
                 </div>
 
                 <div className="space-y-1">

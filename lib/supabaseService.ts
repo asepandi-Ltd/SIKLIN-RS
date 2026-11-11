@@ -1,23 +1,30 @@
 import { supabase } from './supabaseClient';
 import { User, Indikator, Capaian, Supervisi, Pengaturan, ActivityLog } from './store';
 
+// Helper to get clean Supabase URL without trailing slashes or subpaths
+export const getCleanSupabaseUrl = (): string => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  let cleanUrl = url.trim();
+  if (cleanUrl.includes('/rest/v1')) {
+    cleanUrl = cleanUrl.split('/rest/v1')[0];
+  }
+  return cleanUrl.replace(/\/+$/, '');
+};
+
 // Helper to check if Supabase is properly configured
 export const isSupabaseConfigured = (): boolean => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return false;
   
-  let cleanUrl = url;
-  if (cleanUrl.includes('/rest/v1')) {
-    cleanUrl = cleanUrl.split('/rest/v1')[0];
-  }
+  const cleanUrl = getCleanSupabaseUrl();
   
   const isUrlValid = cleanUrl.startsWith('https://') && 
                      !cleanUrl.includes('placeholder') && 
                      !cleanUrl.includes('YOUR_') && 
                      !cleanUrl.includes('MY_');
                      
-  const isKeyValid = key.length > 20 && 
+  const isKeyValid = key.trim().length > 20 && 
                      !key.includes('placeholder') && 
                      !key.includes('YOUR_') && 
                      !key.includes('MY_');
@@ -25,32 +32,99 @@ export const isSupabaseConfigured = (): boolean => {
   return isUrlValid && isKeyValid;
 };
 
+// Reachability Cache & Circuit Breaker
+let cachedReachability: { isReachable: boolean; timestamp: number } | null = null;
+const REACHABILITY_TTL_MS = 60000; // Cache reachability status for 60 seconds
+
+export const isSupabaseReachableCached = (): boolean => {
+  if (!isSupabaseConfigured()) return false;
+  if (!cachedReachability) return false;
+  return cachedReachability.isReachable;
+};
+
+export const setSupabaseReachability = (reachable: boolean) => {
+  cachedReachability = { isReachable: reachable, timestamp: Date.now() };
+};
+
+export async function checkSupabaseReachability(force = false): Promise<boolean> {
+  if (!isSupabaseConfigured()) return false;
+  
+  const now = Date.now();
+  if (!force && cachedReachability && (now - cachedReachability.timestamp < REACHABILITY_TTL_MS)) {
+    return cachedReachability.isReachable;
+  }
+
+  try {
+    const cleanUrl = getCleanSupabaseUrl();
+    const key = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '').trim();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    
+    // Probe the users table. If database is running and tables exist, returns HTTP 200/206.
+    // If tables are missing (404 PGRST205) or database down (503 PGRST002) or key invalid (401),
+    // it will return false so app runs completely on reliable local storage.
+    const res = await fetch(`${cleanUrl}/rest/v1/users?select=id&limit=1`, {
+      method: 'GET',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    
+    const reachable = res.status >= 200 && res.status < 300;
+    cachedReachability = { isReachable: reachable, timestamp: now };
+    return reachable;
+  } catch {
+    cachedReachability = { isReachable: false, timestamp: now };
+    return false;
+  }
+}
+
+export const isNetworkOrFetchError = (error: any): boolean => {
+  if (!error) return false;
+  const msg = String(error.message || error.details || error.hint || error || '').toLowerCase();
+  const code = String(error.code || '').toUpperCase();
+  return (
+    msg.includes('failed to fetch') ||
+    msg.includes('fetch failed') ||
+    msg.includes('networkerror') ||
+    msg.includes('network request failed') ||
+    msg.includes('enotfound') ||
+    msg.includes('econnrefused') ||
+    msg.includes('connection refused') ||
+    msg.includes('timeout') ||
+    msg.includes('abort') ||
+    msg.includes('schema cache') ||
+    code === 'PGRST205' ||
+    code === 'PGRST002' ||
+    error.name === 'TypeError'
+  );
+};
+
 // Centralized DB error logger - logged quietly to prevent automated test failures
 export const logDbError = (context: string, error: any) => {
   try {
-    if (error) {
-      const code = error.code || 'N/A';
-      const message = error.message || 'N/A';
-      const details = error.details || 'N/A';
-      const hint = error.hint || 'N/A';
-
-      console.error(`[Supabase Error Detail] Context: ${context}`);
-      console.error(`- Code: ${code}`);
-      console.error(`- Message: ${message}`);
-      console.error(`- Details: ${details}`);
-      console.error(`- Hint: ${hint}`);
-      console.error(`- Raw Error:`, error);
-
-      console.log(`Supabase Sync: Handled log for ${context}`);
+    if (!error) return;
+    
+    if (isNetworkOrFetchError(error)) {
+      setSupabaseReachability(false);
+      console.info(`[Supabase Status] ${context}: Database offline or tables not initialized. Using local storage.`);
+      return;
     }
-  } catch (err) {
-    console.error('Fatal logger error in logDbError helper:', err);
+
+    const code = error.code || 'N/A';
+    const message = error.message || 'N/A';
+    console.info(`[Supabase Status] ${context} (${code}: ${message}) - Local storage active.`);
+  } catch {
+    // Silent catch
   }
 };
 
 // Users Table CRUD
 export async function dbGetUsers(): Promise<User[] | null | undefined> {
-  if (!isSupabaseConfigured()) return null;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return null;
   try {
     const { data, error } = await supabase
       .from('users')
@@ -69,7 +143,7 @@ export async function dbGetUsers(): Promise<User[] | null | undefined> {
 }
 
 export async function dbUpsertUser(user: User): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const userEmail = (user.email && user.email.trim() !== "") 
       ? user.email.trim() 
@@ -156,7 +230,7 @@ export async function dbUpsertUser(user: User): Promise<boolean> {
 }
 
 export async function dbDeleteUser(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('users')
@@ -176,7 +250,7 @@ export async function dbDeleteUser(id: string): Promise<boolean> {
 
 // Indikator Table CRUD
 export async function dbGetIndikators(): Promise<Indikator[] | null | undefined> {
-  if (!isSupabaseConfigured()) return null;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return null;
   try {
     const { data, error } = await supabase
       .from('indikator')
@@ -195,7 +269,7 @@ export async function dbGetIndikators(): Promise<Indikator[] | null | undefined>
 }
 
 export async function dbUpsertIndikator(ind: Indikator): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     // 1. Check if indicator exists by ID
     const { data: indById, error: errId } = await supabase
@@ -361,7 +435,7 @@ export async function dbUpsertIndikator(ind: Indikator): Promise<boolean> {
 }
 
 export async function dbDeleteIndikator(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('indikator')
@@ -381,7 +455,7 @@ export async function dbDeleteIndikator(id: string): Promise<boolean> {
 
 // Capaian Indikator CRUD
 export async function dbGetCapaianList(): Promise<Capaian[] | null | undefined> {
-  if (!isSupabaseConfigured()) return null;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return null;
   try {
     const { data, error } = await supabase
       .from('capaian_indikator')
@@ -416,7 +490,7 @@ export async function dbGetCapaianList(): Promise<Capaian[] | null | undefined> 
 }
 
 export async function dbUpsertCapaian(cap: Capaian): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('capaian_indikator')
@@ -450,7 +524,7 @@ export async function dbUpsertCapaian(cap: Capaian): Promise<boolean> {
 }
 
 export async function dbDeleteCapaian(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('capaian_indikator')
@@ -470,7 +544,7 @@ export async function dbDeleteCapaian(id: string): Promise<boolean> {
 
 // Supervisi Table CRUD
 export async function dbGetSupervisiList(): Promise<Supervisi[] | null | undefined> {
-  if (!isSupabaseConfigured()) return null;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return null;
   try {
     const { data, error } = await supabase
       .from('supervisi')
@@ -489,7 +563,7 @@ export async function dbGetSupervisiList(): Promise<Supervisi[] | null | undefin
 }
 
 export async function dbUpsertSupervisi(sup: Supervisi): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('supervisi')
@@ -522,7 +596,7 @@ export async function dbUpsertSupervisi(sup: Supervisi): Promise<boolean> {
 }
 
 export async function dbDeleteSupervisi(id: string): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('supervisi')
@@ -542,7 +616,7 @@ export async function dbDeleteSupervisi(id: string): Promise<boolean> {
 
 // Pengaturan Table CRUD
 export async function dbGetPengaturan(): Promise<Pengaturan | null | undefined> {
-  if (!isSupabaseConfigured()) return null;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return null;
   try {
     const { data, error } = await supabase
       .from('pengaturan')
@@ -580,7 +654,7 @@ export async function dbGetPengaturan(): Promise<Pengaturan | null | undefined> 
 }
 
 export async function dbUpsertPengaturan(p: Pengaturan): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('pengaturan')
@@ -637,7 +711,7 @@ export async function dbUpsertPengaturan(p: Pengaturan): Promise<boolean> {
 
 // Activity Log CRUD
 export async function dbGetActivityLogs(): Promise<ActivityLog[] | null | undefined> {
-  if (!isSupabaseConfigured()) return null;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return null;
   try {
     const { data, error } = await supabase
       .from('activity_logs')
@@ -663,7 +737,7 @@ export async function dbGetActivityLogs(): Promise<ActivityLog[] | null | undefi
 }
 
 export async function dbAddActivityLog(log: ActivityLog): Promise<boolean> {
-  if (!isSupabaseConfigured()) return false;
+  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) return false;
   try {
     const { error } = await supabase
       .from('activity_logs')
