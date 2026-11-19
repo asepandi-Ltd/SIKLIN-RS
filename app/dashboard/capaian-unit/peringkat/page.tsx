@@ -9,16 +9,10 @@ import {
   TrendingUp, 
   Trophy, 
   Medal, 
-  Filter, 
-  Search, 
   Printer, 
-  CheckCircle2, 
-  AlertTriangle, 
-  XCircle, 
   ArrowUpRight,
   BarChart3,
-  Sparkles,
-  Layers
+  Sparkles
 } from "lucide-react";
 import { 
   ResponsiveContainer, 
@@ -37,10 +31,8 @@ export default function PeringkatCapaianUnitPage() {
   const router = useRouter();
   const { indikatorList, capaianList } = useAppStore();
   
-  // Filter States
+  // Filter State: Cukup Pemilihan Tahun Saja
   const [selectedYear, setSelectedYear] = useState<number>(2026);
-  const [selectedDivisi, setSelectedDivisi] = useState<string>("Semua Divisi");
-  const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Helper Quality Score Calculator
   const getSkorMutu = (capaian?: Capaian | null): number => {
@@ -80,7 +72,7 @@ export default function PeringkatCapaianUnitPage() {
     return Array.from(map.values());
   }, [indikatorList]);
 
-  // Recapitulate and Rank all units
+  // Recapitulate and Rank all units (Peringkat 1 selalu di paling atas)
   const rankedUnits = useMemo(() => {
     const data = allMasterUnits.map(master => {
       // Find indicators for this unit
@@ -168,7 +160,7 @@ export default function PeringkatCapaianUnitPage() {
       };
     });
 
-    // Sort descending by Total Nilai Kinerja, then by Success Rate
+    // Sort descending by Total Nilai Kinerja, then by Success Rate (Peringkat 1 selalu di paling atas)
     return data.sort((a, b) => {
       if (b.totalNilaiKinerja !== a.totalNilaiKinerja) {
         return b.totalNilaiKinerja - a.totalNilaiKinerja;
@@ -176,15 +168,6 @@ export default function PeringkatCapaianUnitPage() {
       return b.successRate - a.successRate;
     });
   }, [allMasterUnits, indikatorList, capaianList, selectedYear]);
-
-  // Filtered by Division and Search
-  const filteredRankedUnits = useMemo(() => {
-    return rankedUnits.filter(u => {
-      const matchDivisi = selectedDivisi === "Semua Divisi" || u.kategori === selectedDivisi;
-      const matchSearch = searchQuery.trim() === "" || u.unit.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchDivisi && matchSearch;
-    });
-  }, [rankedUnits, selectedDivisi, searchQuery]);
 
   // Top 3 Podium Winners
   const top1 = rankedUnits[0] || null;
@@ -202,7 +185,7 @@ export default function PeringkatCapaianUnitPage() {
     : 0;
 
   // Chart Data
-  const chartData = filteredRankedUnits.map(u => ({
+  const chartData = rankedUnits.map(u => ({
     name: u.unit.length > 15 ? u.unit.substring(0, 15) + "..." : u.unit,
     fullName: u.unit,
     nilai: u.totalNilaiKinerja,
@@ -214,9 +197,10 @@ export default function PeringkatCapaianUnitPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 print:p-2 print:space-y-4">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 print:p-0 print:space-y-4">
+      
+      {/* Header Web View */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 print:hidden">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-3">
             <div className="p-2.5 bg-gradient-to-tr from-amber-500 to-amber-400 rounded-xl text-white shadow-lg shadow-amber-500/30">
@@ -229,19 +213,19 @@ export default function PeringkatCapaianUnitPage() {
           </p>
         </div>
 
-        {/* Print / Action Buttons */}
-        <div className="flex items-center gap-2 print:hidden">
+        {/* Print Button */}
+        <div className="flex items-center gap-2">
           <button
             onClick={handlePrint}
-            className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-50 transition-all shadow-xs flex items-center gap-2"
+            className="px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-50 transition-all shadow-xs flex items-center gap-2 cursor-pointer"
           >
             <Printer size={16} className="text-teal-600" />
-            <span>Cetak / PDF</span>
+            <span>Cetak Rekapitulasi</span>
           </button>
         </div>
       </div>
 
-      {/* Sub Navigation Tabs */}
+      {/* Sub Navigation Tabs (Di dalam halaman Capaian Indikator Unit) */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2 print:hidden">
         <Link
           href="/dashboard/capaian-unit"
@@ -259,57 +243,74 @@ export default function PeringkatCapaianUnitPage() {
         </Link>
       </div>
 
-      {/* Controls & Search */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 flex flex-col md:flex-row gap-4 print:hidden">
-        <div className="w-full md:w-44">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-            Tahun
+      {/* Controls: CUKUP PEMILIHAN TAHUN SAJA (Filter divisi & cari nama unit sudah dihilangkan) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 p-5 flex items-center justify-between gap-4 print:hidden">
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-black text-slate-500 uppercase tracking-wider">
+            Tahun Evaluasi:
           </label>
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
+            className="bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-2 text-sm font-extrabold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
           >
             {[2024, 2025, 2026, 2027, 2028].map(y => (
-              <option key={y} value={y}>{y}</option>
+              <option key={y} value={y}>Tahun {y}</option>
             ))}
           </select>
         </div>
 
-        <div className="w-full md:w-56">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-            Filter Divisi
-          </label>
-          <select
-            value={selectedDivisi}
-            onChange={(e) => setSelectedDivisi(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl px-4 py-2.5 text-sm font-semibold focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
-          >
-            <option value="Semua Divisi">Semua Divisi</option>
-            <option value="Penunjang Medis">Penunjang Medis</option>
-            <option value="Penunjang Non Medis">Penunjang Non Medis</option>
-          </select>
-        </div>
-
-        <div className="flex-1">
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-            Cari Nama Unit
-          </label>
-          <div className="relative">
-            <Search size={16} className="absolute left-3.5 top-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Ketik nama unit (misal: Laboratorium, Radiologi)..."
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 rounded-xl text-sm font-medium focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
-            />
-          </div>
+        <div className="text-xs text-slate-500 font-semibold hidden sm:flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-teal-500"></span>
+          <span>Menampilkan rekapitulasi nilai capaian seluruh {rankedUnits.length} unit penunjang</span>
         </div>
       </div>
 
-      {/* Top 3 Champion Podium Leaderboard */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+      {/* ============================================================== */}
+      {/* KHUSUS MENU PRINT: KOP SURAT RESMI & PERINGKAT 1 PALING ATAS  */}
+      {/* ============================================================== */}
+      <div className="hidden print:block space-y-4 mb-4">
+        {/* Kop Surat Rumah Sakit */}
+        <div className="text-center border-b-2 border-slate-900 pb-3">
+          <h1 className="text-base font-black uppercase text-slate-900 tracking-wider">
+            PEMERINTAH KOTA SUKABUMI - RSUD AL-MULK
+          </h1>
+          <h2 className="text-xs font-bold uppercase text-slate-700">
+            SEKSI PENUNJANG MEDIS DAN NON MEDIS
+          </h2>
+          <p className="text-[10px] text-slate-500">
+            Jl. Pelabuhan II No. KM. 6, Lembursitu, Kota Sukabumi, Jawa Barat
+          </p>
+          <div className="mt-3 bg-slate-100 py-1.5 border border-slate-400">
+            <h3 className="text-sm font-black uppercase text-slate-900">
+              REKAPITULASI & PEMERINGKATAN NILAI CAPAIAN INDIKATOR KINERJA SELURUH UNIT (TAHUN {selectedYear})
+            </h3>
+          </div>
+        </div>
+
+        {/* Posisi Peringkat 1 Ditempatkan di Posisi Paling Atas */}
+        {top1 && (
+          <div className="p-4 border-2 border-slate-900 bg-amber-50 rounded-xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-black uppercase tracking-widest text-amber-900 block">
+                  🥇 PERINGKAT 1 (TERBAIK) TAHUN {selectedYear}
+                </span>
+                <h2 className="text-xl font-black text-slate-900 mt-0.5">{top1.unit}</h2>
+                <p className="text-xs text-slate-700 font-bold">{top1.kategori} • {top1.indicatorCount} Indikator Kinerja</p>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-slate-600 uppercase font-black tracking-wider block">Total Nilai Capaian</span>
+                <span className="text-2xl font-black text-slate-900">{top1.totalNilaiKinerja} Poin</span>
+                <span className="text-xs font-extrabold text-emerald-800 block mt-0.5">Ketercapaian Mutu: {top1.successRate}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Top 3 Champion Podium Leaderboard (Hanya di Layar, saat Print disembunyikan karena sudah ada banner Peringkat 1 di atas) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2 print:hidden">
         {/* Juara 2 */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}
@@ -405,39 +406,39 @@ export default function PeringkatCapaianUnitPage() {
       </div>
 
       {/* Summary Statistical Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-medium">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs font-medium print:grid-cols-4 print:gap-2">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1 print:p-2">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Unit Dievaluasi</span>
           <div className="text-xl font-black text-slate-800">{rankedUnits.length} Unit</div>
           <p className="text-[10px] text-slate-500">Seluruh unit penunjang aktif</p>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1 print:p-2">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Rata-rata Nilai Unit</span>
           <div className="text-xl font-black text-teal-600">{avgNilaiSeluruhUnit} Poin</div>
           <p className="text-[10px] text-slate-500">Benchmark nilai penunjang</p>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1 print:p-2">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Rasio Mutu Tercapai</span>
           <div className="text-xl font-black text-emerald-600">{overallSuccessRate}%</div>
           <p className="text-[10px] text-slate-500">Persentase indikator Skor 3</p>
         </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1">
+        <div className="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-xs space-y-1 print:p-2">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Laporan Masuk</span>
           <div className="text-xl font-black text-slate-800">{totalSeluruhLaporan} Laporan</div>
           <p className="text-[10px] text-slate-500">Tercatat tahun {selectedYear}</p>
         </div>
       </div>
 
-      {/* Main Ranking Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden space-y-3">
-        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+      {/* Main Ranking Table (Peringkat 1 Berada di Paling Atas Baris 1) */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden space-y-3 print:border print:border-slate-300">
+        <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 print:p-3">
           <div>
             <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
               <span>Tabel Klasemen Pemeringkatan Kinerja Unit</span>
-              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-teal-50 text-teal-700">
+              <span className="px-2 py-0.5 rounded text-[10px] font-black bg-teal-50 text-teal-700 print:bg-slate-100 print:text-slate-800">
                 Tahun {selectedYear}
               </span>
             </h3>
@@ -445,14 +446,14 @@ export default function PeringkatCapaianUnitPage() {
               Urutan berdasarkan Total Nilai Capaian Kinerja (Akumulasi Skor Mutu × Rumus Pengali).
             </p>
           </div>
-          <div className="text-xs font-bold text-slate-500">
-            Menampilkan {filteredRankedUnits.length} dari {rankedUnits.length} Unit
+          <div className="text-xs font-bold text-slate-500 print:hidden">
+            Total {rankedUnits.length} Unit Penunjang
           </div>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap min-w-[1000px]">
-            <thead className="bg-slate-50 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-200">
+          <table className="w-full text-left text-sm whitespace-nowrap min-w-[1000px] print:min-w-full">
+            <thead className="bg-slate-50 text-slate-600 font-semibold text-xs uppercase tracking-wider border-b border-slate-200 print:bg-slate-100">
               <tr>
                 <th className="px-4 py-3.5 text-center w-16">Peringkat</th>
                 <th className="px-5 py-3.5">Unit Penunjang</th>
@@ -460,7 +461,7 @@ export default function PeringkatCapaianUnitPage() {
                 <th className="px-4 py-3.5 text-center">Laporan Masuk</th>
                 <th className="px-4 py-3.5 text-center">Komposisi Skor (3 / 2 / 1)</th>
                 <th className="px-4 py-3.5 text-center">% Tercapai</th>
-                <th className="px-5 py-3.5 text-center bg-teal-50/70 text-teal-900 font-black">
+                <th className="px-5 py-3.5 text-center bg-teal-50/70 text-teal-900 font-black print:bg-slate-100">
                   Total Nilai Kinerja
                 </th>
                 <th className="px-4 py-3.5 text-center">Predikat Mutu</th>
@@ -468,138 +469,130 @@ export default function PeringkatCapaianUnitPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs font-medium">
-              {filteredRankedUnits.length > 0 ? (
-                filteredRankedUnits.map((u, idx) => {
-                  const rankNumber = idx + 1;
-                  return (
-                    <tr 
-                      key={u.unit} 
-                      className={`hover:bg-slate-50/80 transition-colors ${
-                        rankNumber === 1 ? 'bg-amber-50/30 font-semibold' : ''
-                      }`}
-                    >
-                      {/* Peringkat Badge */}
-                      <td className="px-4 py-3.5 text-center">
-                        {rankNumber === 1 ? (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-white font-black text-xs shadow-xs">
-                            1
-                          </span>
-                        ) : rankNumber === 2 ? (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-300 text-slate-800 font-black text-xs">
-                            2
-                          </span>
-                        ) : rankNumber === 3 ? (
-                          <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-300 text-orange-900 font-black text-xs">
-                            3
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 text-slate-600 font-bold text-xs">
-                            {rankNumber}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Nama Unit & Kategori */}
-                      <td className="px-5 py-3.5">
-                        <div className="font-extrabold text-slate-800 text-sm">{u.unit}</div>
-                        <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md mt-0.5 ${
-                          u.kategori === 'Penunjang Medis' 
-                            ? 'bg-blue-50 text-blue-700' 
-                            : 'bg-purple-50 text-purple-700'
-                        }`}>
-                          {u.kategori}
+              {rankedUnits.map((u, idx) => {
+                const rankNumber = idx + 1;
+                return (
+                  <tr 
+                    key={u.unit} 
+                    className={`hover:bg-slate-50/80 transition-colors ${
+                      rankNumber === 1 ? 'bg-amber-50/30 font-semibold print:bg-amber-50/20' : ''
+                    }`}
+                  >
+                    {/* Peringkat Badge (Peringkat 1 paling atas) */}
+                    <td className="px-4 py-3.5 text-center">
+                      {rankNumber === 1 ? (
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-white font-black text-xs shadow-xs print:border print:border-amber-600 print:text-black">
+                          1
                         </span>
-                      </td>
+                      ) : rankNumber === 2 ? (
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-slate-300 text-slate-800 font-black text-xs">
+                          2
+                        </span>
+                      ) : rankNumber === 3 ? (
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-orange-300 text-orange-900 font-black text-xs">
+                          3
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-slate-100 text-slate-600 font-bold text-xs">
+                          {rankNumber}
+                        </span>
+                      )}
+                    </td>
 
-                      {/* Jumlah Indikator */}
-                      <td className="px-4 py-3.5 text-center font-bold text-slate-700">
-                        {u.indicatorCount} KPI
-                      </td>
+                    {/* Nama Unit & Kategori */}
+                    <td className="px-5 py-3.5">
+                      <div className="font-extrabold text-slate-800 text-sm">{u.unit}</div>
+                      <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-md mt-0.5 ${
+                        u.kategori === 'Penunjang Medis' 
+                          ? 'bg-blue-50 text-blue-700 print:bg-slate-50' 
+                          : 'bg-purple-50 text-purple-700 print:bg-slate-50'
+                      }`}>
+                        {u.kategori}
+                      </span>
+                    </td>
 
-                      {/* Laporan Masuk */}
-                      <td className="px-4 py-3.5 text-center">
-                        <span className="font-bold text-slate-800">{u.totalLaporanMasuk}</span>
-                        <span className="text-slate-400 text-[10px] block">Bulan Terisi</span>
-                      </td>
+                    {/* Jumlah Indikator */}
+                    <td className="px-4 py-3.5 text-center font-bold text-slate-700">
+                      {u.indicatorCount} KPI
+                    </td>
 
-                      {/* Komposisi Skor (3 / 2 / 1) */}
-                      <td className="px-4 py-3.5 text-center">
-                        <div className="inline-flex items-center gap-1.5 font-bold">
-                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px]" title="Skor 3: Tercapai">
-                            {u.countSkor3}
-                          </span>
-                          <span className="text-slate-300">/</span>
-                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px]" title="Skor 2: Mendekati">
-                            {u.countSkor2}
-                          </span>
-                          <span className="text-slate-300">/</span>
-                          <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded text-[10px]" title="Skor 1: Tidak Tercapai">
-                            {u.countSkor1}
-                          </span>
+                    {/* Laporan Masuk */}
+                    <td className="px-4 py-3.5 text-center">
+                      <span className="font-bold text-slate-800">{u.totalLaporanMasuk}</span>
+                      <span className="text-slate-400 text-[10px] block">Bulan Terisi</span>
+                    </td>
+
+                    {/* Komposisi Skor (3 / 2 / 1) */}
+                    <td className="px-4 py-3.5 text-center">
+                      <div className="inline-flex items-center gap-1.5 font-bold">
+                        <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded text-[10px]" title="Skor 3: Tercapai">
+                          {u.countSkor3}
+                        </span>
+                        <span className="text-slate-300">/</span>
+                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[10px]" title="Skor 2: Mendekati">
+                          {u.countSkor2}
+                        </span>
+                        <span className="text-slate-300">/</span>
+                        <span className="px-1.5 py-0.5 bg-rose-100 text-rose-800 rounded text-[10px]" title="Skor 1: Tidak Tercapai">
+                          {u.countSkor1}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* % Tercapai */}
+                    <td className="px-4 py-3.5 text-center">
+                      <div className="w-24 mx-auto space-y-1">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                          <span>{u.successRate}%</span>
                         </div>
-                      </td>
-
-                      {/* % Tercapai */}
-                      <td className="px-4 py-3.5 text-center">
-                        <div className="w-24 mx-auto space-y-1">
-                          <div className="flex items-center justify-between text-[11px] font-bold text-slate-700">
-                            <span>{u.successRate}%</span>
-                          </div>
-                          <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full ${
-                                u.successRate >= 80 ? 'bg-emerald-500' : u.successRate >= 50 ? 'bg-amber-500' : 'bg-rose-500'
-                              }`} 
-                              style={{ width: `${u.successRate}%` }}
-                            />
-                          </div>
+                        <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden print:border print:border-slate-300">
+                          <div 
+                            className={`h-full rounded-full ${
+                              u.successRate >= 80 ? 'bg-emerald-500' : u.successRate >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                            }`} 
+                            style={{ width: `${u.successRate}%` }}
+                          />
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* Total Nilai Kinerja (Primary Ranking Key) */}
-                      <td className="px-5 py-3.5 text-center bg-teal-50/50">
-                        <span className="text-base font-black text-teal-800">
-                          {u.totalNilaiKinerja}
-                        </span>
-                        <span className="text-[10px] text-teal-600 block font-semibold">Poin Akumulasi</span>
-                      </td>
+                    {/* Total Nilai Kinerja (Basis Penentu Peringkat Utama) */}
+                    <td className="px-5 py-3.5 text-center bg-teal-50/50 print:bg-slate-50">
+                      <span className="text-base font-black text-teal-800 print:text-black">
+                        {u.totalNilaiKinerja}
+                      </span>
+                      <span className="text-[10px] text-teal-600 block font-semibold print:text-slate-600">Poin Akumulasi</span>
+                    </td>
 
-                      {/* Predikat Mutu */}
-                      <td className="px-4 py-3.5 text-center">
-                        <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold border ${u.predikatColor}`}>
-                          {u.predikat}
-                        </span>
-                      </td>
+                    {/* Predikat Mutu */}
+                    <td className="px-4 py-3.5 text-center">
+                      <span className={`inline-block px-2.5 py-1 rounded-lg text-xs font-bold border ${u.predikatColor}`}>
+                        {u.predikat}
+                      </span>
+                    </td>
 
-                      {/* Aksi Button */}
-                      <td className="px-4 py-3.5 text-center print:hidden">
-                        <button
-                          onClick={() => {
-                            router.push(`/dashboard/capaian-unit`);
-                          }}
-                          className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 font-bold rounded-lg text-xs transition-all shadow-2xs inline-flex items-center gap-1"
-                        >
-                          <span>Matriks</span>
-                          <ArrowUpRight size={13} />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-500 font-medium">
-                    Tidak ada unit yang sesuai dengan filter pencarian.
-                  </td>
-                </tr>
-              )}
+                    {/* Aksi Button */}
+                    <td className="px-4 py-3.5 text-center print:hidden">
+                      <button
+                        onClick={() => {
+                          router.push(`/dashboard/capaian-unit`);
+                        }}
+                        className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 hover:bg-teal-50 hover:text-teal-700 hover:border-teal-300 font-bold rounded-lg text-xs transition-all shadow-2xs inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Matriks</span>
+                        <ArrowUpRight size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Visual Bar Chart: Perbandingan Total Nilai Antar Unit */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 print:break-inside-avoid">
+      {/* Visual Bar Chart: Perbandingan Total Nilai Antar Unit (Hanya Layar Web) */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 print:hidden">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
@@ -650,8 +643,27 @@ export default function PeringkatCapaianUnitPage() {
         </div>
       </div>
 
+      {/* Lembar Tanda Tangan Khusus Hasil Cetak Print */}
+      <div className="hidden print:grid grid-cols-2 gap-8 pt-8 text-xs text-slate-800">
+        <div className="text-center space-y-16">
+          <p>Mengetahui,<br/><strong>Kepala Seksi Penunjang Medis & Non Medis</strong></p>
+          <div>
+            <p className="font-bold underline">Bono Andi, S.Kep., Ners</p>
+            <p className="text-[10px] text-slate-600">NIP. 19820415 200801 1 005</p>
+          </div>
+        </div>
+
+        <div className="text-center space-y-16">
+          <p>Sukabumi, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}<br/><strong>Petugas Evaluasi Kinerja</strong></p>
+          <div>
+            <p className="font-bold underline">Asep Andi, A.Md.Kes</p>
+            <p className="text-[10px] text-slate-600">Pengelola Data Kinerja</p>
+          </div>
+        </div>
+      </div>
+
       {/* Scoring Explanation Footnote */}
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 space-y-1.5">
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 space-y-1.5 print:hidden">
         <h4 className="font-bold text-slate-800 flex items-center gap-1.5">
           <Sparkles size={14} className="text-teal-600" />
           <span>Dasar Perhitungan Pemeringkatan Kinerja:</span>
