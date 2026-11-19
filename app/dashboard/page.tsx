@@ -127,7 +127,8 @@ export default function DashboardPage() {
   ));
   const delayedUnits = allUnits.filter(u => !submittedUnitsForMonth.some(sub => isSameUnit(sub as string, u)));
 
-  // --- CHART 1: Monthly Average KPI Trend (Jan - Dec 2026) ---
+  // --- CHART 1: Monthly KPI Success Rate Trend (Jan - Dec) ---
+  // Menampilkan persentase jumlah capaian indikator yang berhasil tercapai (skor 3 / hijau) / total laporan
   const monthsList = [
     { num: 1, label: 'Jan' },
     { num: 2, label: 'Feb' },
@@ -146,14 +147,31 @@ export default function DashboardPage() {
   const trendData = monthsList.map(m => {
     const caps = capaianList.filter(c => {
       const ind = indikatorList.find(i => i.id === c.indikator_id);
-      return c.bulan === m.num && c.tahun === 2026 && c.status_submit === 'Submitted' && ind?.status;
+      const matchMonth = Number(c.bulan) === Number(m.num);
+      const matchYear = Number(c.tahun) === Number(selectedTahun);
+      const matchSubmit = c.status_submit === 'Submitted' || !c.status_submit;
+      return matchMonth && matchYear && matchSubmit && ind?.status;
     });
-    const avg = caps.length > 0 
-      ? Math.round(caps.reduce((sum, current) => sum + current.capaian, 0) / caps.length)
-      : 0;
+
+    const total = caps.length;
+    const tercapai = caps.filter(c => {
+      if (c.nilai === 3) return true;
+      if (c.status === 'Tercapai') return true;
+      if (c.nilai === 1 || c.nilai === 2) return false;
+      if (typeof c.capaian === 'number' && typeof c.target === 'number' && c.target > 0) {
+        return c.capaian >= c.target;
+      }
+      return false;
+    }).length;
+
+    // Persentase = (jumlah capaian indikator berhasil tercapai / total laporan) * 100%
+    const rate = total > 0 ? Math.round((tercapai / total) * 100) : null;
+
     return {
       name: m.label,
-      capaian: avg || null,
+      capaian: rate,
+      tercapai,
+      total,
       target: 95 // generic target benchmark
     };
   });
@@ -169,11 +187,16 @@ export default function DashboardPage() {
       // loop through 12 months for the selected year
       for (let month = 1; month <= 12; month++) {
         const capaian = capaianList.find(
-          c => c.indikator_id === ind.id && c.bulan === month && c.tahun === selectedTahun
+          c => c.indikator_id === ind.id && Number(c.bulan) === Number(month) && Number(c.tahun) === Number(selectedTahun)
         );
-        totalSkor += capaian?.nilai || 0;
+        const skor = capaian ? (
+          (typeof capaian.nilai === 'number' && capaian.nilai > 0)
+            ? capaian.nilai
+            : (capaian.status === 'Tercapai' ? 3 : capaian.status === 'Mendekati Target' ? 2 : 1)
+        ) : 0;
+        totalSkor += skor;
       }
-      const pengali = ind.bobot !== undefined ? ind.bobot : 0;
+      const pengali = (typeof ind.bobot === 'number' && !isNaN(ind.bobot) && ind.bobot > 0) ? ind.bobot : 1;
       totalKinerjaUnit += totalSkor * pengali;
     });
 
@@ -188,7 +211,7 @@ export default function DashboardPage() {
   const complianceTrendData = monthsList.map(m => {
     const caps = capaianList.filter(c => {
       const ind = indikatorList.find(i => i.id === c.indikator_id);
-      return c.bulan === m.num && c.tahun === 2026 && c.status_submit === 'Submitted' && ind?.status;
+      return Number(c.bulan) === Number(m.num) && Number(c.tahun) === Number(selectedTahun) && c.status_submit === 'Submitted' && ind?.status;
     });
     const rate = totalIndikatorCount > 0 
       ? Math.round((caps.length / totalIndikatorCount) * 100)
@@ -522,9 +545,13 @@ export default function DashboardPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="font-extrabold text-slate-800 text-sm">Tren Capaian Realisasi KPI Bulanan</h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">Januari - Juni 2026 (Kumulatif Seluruh Unit)</p>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                Januari - Desember {selectedTahun} (Persentase Capaian Skor 3/Hijau)
+              </p>
             </div>
-            <span className="px-2 py-0.5 bg-teal-50 text-teal-600 text-[10px] font-black rounded uppercase">Rata-rata</span>
+            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black rounded uppercase">
+              % KPI Tercapai
+            </span>
           </div>
 
           <div className="h-64 w-full min-w-0">
@@ -535,10 +562,20 @@ export default function DashboardPage() {
                 <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} domain={[0, 100]} unit="%" fontWeight="bold" />
                 <Tooltip 
                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', fontSize: '12px' }}
+                  formatter={(val: any, name?: any, item?: any): any => {
+                    const strName = String(name || '');
+                    if (strName.includes('% KPI Tercapai')) {
+                      return [
+                        `${val ?? '-'}% (${item?.payload?.tercapai || 0} dari ${item?.payload?.total || 0} laporan)`,
+                        '% KPI Tercapai'
+                      ];
+                    }
+                    return [`${val}%`, strName];
+                  }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
-                <Line type="monotone" dataKey="capaian" name="Rata-rata Realisasi" stroke="#00A8A8" strokeWidth={3} activeDot={{ r: 6 }} dot={{ r: 4, strokeWidth: 2 }} />
-                <Line type="monotone" dataKey="target" name="Standar Target RS" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
+                <Line type="monotone" dataKey="capaian" name="% KPI Tercapai (Skor 3/Hijau)" stroke="#00A8A8" strokeWidth={3} activeDot={{ r: 6 }} dot={{ r: 4, strokeWidth: 2 }} />
+                <Line type="monotone" dataKey="target" name="Standar Target Mutu (95%)" stroke="#10b981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
