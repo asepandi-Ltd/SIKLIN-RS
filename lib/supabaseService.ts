@@ -480,7 +480,9 @@ export async function dbGetCapaianList(): Promise<Capaian[] | null | undefined> 
       keterangan: item.keterangan || '',
       eviden: item.eviden || '',
       status_submit: item.status_submit,
-      nilai: item.nilai !== null ? Number(item.nilai) : undefined,
+      nilai: (item.nilai !== null && item.nilai !== undefined && Number(item.nilai) > 0)
+        ? Number(item.nilai)
+        : (item.status === 'Tercapai' ? 3 : item.status === 'Mendekati Target' ? 2 : 1),
       created_at: item.created_at,
     })) as Capaian[];
   } catch (err) {

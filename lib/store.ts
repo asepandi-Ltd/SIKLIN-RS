@@ -1107,7 +1107,13 @@ export const useAppStore = create<AppState>((set, get) => {
   const currentUser = getStored('sipak_currentUser', defaultUsers[0]); // default is Super Admin Bono
   const loadedUsers: User[] = getStored('sipak_users', defaultUsers);
   const loadedIndikator: Indikator[] = getStored('sipak_indikator', defaultIndikator);
-  const loadedCapaian: Capaian[] = getStored('sipak_capaian', defaultCapaian);
+  const rawLoadedCapaian: Capaian[] = getStored('sipak_capaian', defaultCapaian);
+  const loadedCapaian: Capaian[] = rawLoadedCapaian.map(c => ({
+    ...c,
+    nilai: (typeof c.nilai === 'number' && c.nilai > 0)
+      ? c.nilai
+      : (c.status === 'Tercapai' ? 3 : c.status === 'Mendekati Target' ? 2 : 1)
+  }));
   const supervisiList = getStored('sipak_supervisi', defaultSupervisi);
   const pengaturan = getStored('sipak_pengaturan', defaultPengaturan);
   const activityLogs = getStored('sipak_logs', defaultLogs);

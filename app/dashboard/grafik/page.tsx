@@ -44,13 +44,11 @@ export default function GrafikCapaianPage() {
   // Filters
   const [selectedTahun, setSelectedTahun] = useState(2026);
   const [selectedUnit, setSelectedUnit] = useState("Semua Unit");
-  const [selectedKategori, setSelectedKategori] = useState("Semua Kategori");
-  const [selectedJenisPengukuran, setSelectedJenisPengukuran] = useState<string>("Semua Jenis");
   const [selectedFrekuensi, setSelectedFrekuensi] = useState<string>("Semua Frekuensi");
   const [selectedIndikatorDetail, setSelectedIndikatorDetail] = useState<string>("Semua Indikator");
 
-  // Tab View for Multi-Metric Breakdown
-  const [activeMetricTab, setActiveMetricTab] = useState<'Semua' | 'Persentase' | 'Jumlah' | 'Durasi'>('Semua');
+  // Tab View for Multi-Metric Breakdown (Tanpa "Semua Metrik")
+  const [activeMetricTab, setActiveMetricTab] = useState<'Persentase' | 'Jumlah' | 'Durasi'>('Persentase');
 
   useEffect(() => {
     setMounted(true);
@@ -104,16 +102,24 @@ export default function GrafikCapaianPage() {
     ? semestersList 
     : fullMonthsList;
 
-  // Filter indicators (only active ones)
-  const filteredInds = indikatorList.filter(ind => {
+  // Base Indicators filtered by unit and frequency (active only)
+  const baseInds = indikatorList.filter(ind => {
     const matchesUnit = selectedUnit === "Semua Unit" || ind.unit === selectedUnit;
-    const matchesKategori = selectedKategori === "Semua Kategori" || ind.kategori === selectedKategori;
-    const jenis = getJenisPengukuran(ind);
-    const matchesJenis = selectedJenisPengukuran === "Semua Jenis" || jenis === selectedJenisPengukuran;
-    const matchesTab = activeMetricTab === 'Semua' || jenis === activeMetricTab;
     const matchesFrekuensi = selectedFrekuensi === "Semua Frekuensi" || (ind.frekuensi || "Bulanan") === selectedFrekuensi;
+    return matchesUnit && matchesFrekuensi && ind.status;
+  });
+
+  // Group Indicators by measurement type
+  const percentInds = baseInds.filter(i => getJenisPengukuran(i) === 'Persentase');
+  const countInds = baseInds.filter(i => getJenisPengukuran(i) === 'Jumlah');
+  const durationInds = baseInds.filter(i => getJenisPengukuran(i) === 'Durasi');
+
+  // Filter indicators for active tab
+  const filteredInds = baseInds.filter(ind => {
+    const jenis = getJenisPengukuran(ind);
+    const matchesTab = jenis === activeMetricTab;
     const matchesIndDetail = selectedIndikatorDetail === "Semua Indikator" || ind.id === selectedIndikatorDetail;
-    return matchesUnit && matchesKategori && matchesJenis && matchesTab && matchesFrekuensi && matchesIndDetail && ind.status;
+    return matchesTab && matchesIndDetail;
   });
 
   const filteredIndIds = filteredInds.map(i => i.id);
@@ -125,11 +131,6 @@ export default function GrafikCapaianPage() {
     const matchesSubmit = cap.status_submit === 'Submitted';
     return matchesYear && matchesInd && matchesSubmit;
   });
-
-  // Group Indicators by measurement type
-  const percentInds = filteredInds.filter(i => getJenisPengukuran(i) === 'Persentase');
-  const countInds = filteredInds.filter(i => getJenisPengukuran(i) === 'Jumlah');
-  const durationInds = filteredInds.filter(i => getJenisPengukuran(i) === 'Durasi');
 
   // =========================================================================
   // 1. Trend Bulanan (Januari - Desember) Berdasarkan Jenis Pengukuran
@@ -336,24 +337,12 @@ export default function GrafikCapaianPage() {
           </div>
         </div>
 
-        {/* Detailed Secondary Filters (Jenis Pengukuran, Frekuensi, Divisi, Indikator Spesifik) */}
+        {/* Secondary Filters (Frekuensi, Indikator Spesifik) */}
         <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3 text-xs">
           <div className="flex items-center gap-1.5 font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">
             <Filter size={13} className="text-teal-600" />
             <span>Kategori Filter:</span>
           </div>
-
-          {/* Jenis Pengukuran Filter */}
-          <select
-            value={selectedJenisPengukuran}
-            onChange={(e) => setSelectedJenisPengukuran(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-gray-200 rounded-lg font-bold text-slate-700 outline-none"
-          >
-            <option value="Semua Jenis">Semua Jenis Pengukuran</option>
-            <option value="Persentase">Persentase (%)</option>
-            <option value="Jumlah">Jumlah (Kali, Laporan, Dokumen)</option>
-            <option value="Durasi">Durasi (Menit/Waktu Tunggu)</option>
-          </select>
 
           {/* Frekuensi Filter */}
           <select
@@ -368,17 +357,6 @@ export default function GrafikCapaianPage() {
             <option value="Tahunan">Tahunan</option>
           </select>
 
-          {/* Divisi Filter */}
-          <select
-            value={selectedKategori}
-            onChange={(e) => setSelectedKategori(e.target.value)}
-            className="px-3 py-1.5 bg-slate-50 border border-gray-200 rounded-lg font-bold text-slate-700 outline-none"
-          >
-            <option value="Semua Kategori">Semua Divisi</option>
-            <option value="Penunjang Medis">Penunjang Medis</option>
-            <option value="Penunjang Non Medis">Penunjang Non Medis</option>
-          </select>
-
           {/* Specific Indicator Filter */}
           {selectedUnit !== "Semua Unit" && (
             <select
@@ -386,9 +364,9 @@ export default function GrafikCapaianPage() {
               onChange={(e) => setSelectedIndikatorDetail(e.target.value)}
               className="px-3 py-1.5 bg-teal-50/70 border border-teal-200 rounded-lg font-bold text-teal-900 outline-none max-w-xs truncate"
             >
-              <option value="Semua Indikator">-- Semua Indikator {selectedUnit} --</option>
-              {indikatorList
-                .filter(i => i.unit === selectedUnit && i.status)
+              <option value="Semua Indikator">-- Semua Indikator {selectedUnit} ({activeMetricTab}) --</option>
+              {baseInds
+                .filter(i => i.unit === selectedUnit && i.status && getJenisPengukuran(i) === activeMetricTab)
                 .map(i => (
                   <option key={i.id} value={i.id}>
                     {i.kode} - {i.nama} ({i.satuan || '%'})
@@ -458,19 +436,10 @@ export default function GrafikCapaianPage() {
       {/* Tabs Pemisahan Berdasarkan Jenis Pengukuran */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
-          onClick={() => setActiveMetricTab('Semua')}
-          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-            activeMetricTab === 'Semua' 
-              ? 'bg-teal-600 text-white shadow-xs' 
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-          }`}
-        >
-          <Layers size={14} />
-          <span>Semua Metrik ({filteredInds.length})</span>
-        </button>
-
-        <button
-          onClick={() => setActiveMetricTab('Persentase')}
+          onClick={() => {
+            setActiveMetricTab('Persentase');
+            setSelectedIndikatorDetail("Semua Indikator");
+          }}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeMetricTab === 'Persentase' 
               ? 'bg-teal-600 text-white shadow-xs' 
@@ -482,7 +451,10 @@ export default function GrafikCapaianPage() {
         </button>
 
         <button
-          onClick={() => setActiveMetricTab('Jumlah')}
+          onClick={() => {
+            setActiveMetricTab('Jumlah');
+            setSelectedIndikatorDetail("Semua Indikator");
+          }}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeMetricTab === 'Jumlah' 
               ? 'bg-teal-600 text-white shadow-xs' 
@@ -494,7 +466,10 @@ export default function GrafikCapaianPage() {
         </button>
 
         <button
-          onClick={() => setActiveMetricTab('Durasi')}
+          onClick={() => {
+            setActiveMetricTab('Durasi');
+            setSelectedIndikatorDetail("Semua Indikator");
+          }}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
             activeMetricTab === 'Durasi' 
               ? 'bg-teal-600 text-white shadow-xs' 
@@ -516,7 +491,7 @@ export default function GrafikCapaianPage() {
               <h3 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
                 <span>Grafik Tren Kinerja KPI</span>
                 <span className="px-2 py-0.5 rounded text-[10px] font-black bg-teal-50 text-teal-700">
-                  {activeMetricTab === 'Semua' ? 'Persentase (%)' : activeMetricTab}
+                  {activeMetricTab === 'Persentase' ? 'Persentase (%)' : activeMetricTab}
                 </span>
               </h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
