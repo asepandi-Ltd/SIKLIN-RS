@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { useAppStore, Capaian } from "@/lib/store";
 import { TrendingUp, Info, Award, CheckCircle, AlertTriangle, XCircle, Calculator } from "lucide-react";
 import { motion } from "motion/react";
@@ -110,6 +111,24 @@ export default function CapaianUnitPage() {
             Tabel evaluasi dan matriks hasil skor penilaian mutu kinerja indikator tahun {selectedYear}.
           </p>
         </div>
+      </div>
+
+      {/* Sub Navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+        <Link
+          href="/dashboard/capaian-unit"
+          className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-teal-600 text-white shadow-xs"
+        >
+          <TrendingUp size={15} />
+          <span>Matriks Capaian Per Unit</span>
+        </Link>
+        <Link
+          href="/dashboard/capaian-unit/peringkat"
+          className="px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+        >
+          <Award size={15} />
+          <span>🏆 Rekapitulasi & Pemeringkatan Semua Unit</span>
+        </Link>
       </div>
 
       {/* Controls */}

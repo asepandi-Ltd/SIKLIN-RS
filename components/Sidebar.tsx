@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Sparkles,
   Lock,
-  TrendingUp
+  TrendingUp,
+  Award
 } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import Swal from "sweetalert2";
@@ -89,6 +90,12 @@ export function Sidebar({ isOpen, setIsOpen, isMobile }: SidebarProps) {
       roles: ["Super Admin", "Kepala Seksi", "Kepala Unit", "Supervisor"]
     },
     { 
+      name: "Rekap & Peringkat Unit", 
+      href: "/dashboard/capaian-unit/peringkat", 
+      icon: <Award size={20} />,
+      roles: ["Super Admin", "Kepala Seksi", "Kepala Unit", "Supervisor"]
+    },
+    { 
       name: "Pengaturan", 
       href: "/dashboard/pengaturan", 
       icon: <Settings size={20} />,
@@ -149,7 +156,9 @@ export function Sidebar({ isOpen, setIsOpen, isMobile }: SidebarProps) {
         {/* Scrollable Navigation Items */}
         <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
           {menuItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname && pathname.startsWith(item.href));
+            const isActive = item.href === '/dashboard/capaian-unit'
+              ? pathname === '/dashboard/capaian-unit'
+              : (pathname === item.href || (item.href !== '/dashboard' && pathname && pathname.startsWith(item.href)));
             const allowed = isAllowed(item.roles);
 
             return (
