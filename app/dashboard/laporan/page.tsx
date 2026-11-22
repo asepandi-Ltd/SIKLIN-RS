@@ -68,10 +68,10 @@ export default function LaporanPage() {
   const isSuperAdminOrKasi = currentUser?.role === 'Super Admin' || currentUser?.role === 'Kepala Seksi' || currentUser?.role === 'Supervisor';
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-0">
       {/* Top Banner / Role Notification Bar (if Super Admin or viewing as unit) */}
       {isSuperAdminOrKasi && (
-        <div className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between text-xs gap-3">
+        <div className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between text-xs gap-3 print:hidden">
           <div className="flex items-center gap-2 text-slate-700">
             <ShieldCheck size={16} className="text-teal-600 shrink-0" />
             <span>
@@ -121,9 +121,9 @@ export default function LaporanPage() {
 
       {/* Main View Router */}
       {isKepalaUnit || unitMode ? (
-        <div className="space-y-4">
+        <div className="space-y-4 print:space-y-0">
           {/* Year selector for Kepala Unit view */}
-          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between">
+          <div className="bg-white rounded-xl p-3 border border-slate-200/80 shadow-2xs flex items-center justify-between print:hidden">
             <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
               <Calendar size={15} className="text-teal-600" />
               <span>Tahun Laporan:</span>

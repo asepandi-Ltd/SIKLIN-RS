@@ -32,13 +32,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6] text-gray-800 flex overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} isMobile={isMobile} />
+    <div className="min-h-screen bg-[#F3F4F6] text-gray-800 flex overflow-hidden print:bg-white print:overflow-visible print:block">
+      <div className="print:hidden">
+        <Sidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} isMobile={isMobile} />
+      </div>
       
-      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarOpen && !isMobile ? "ml-64" : !isMobile ? "ml-20" : "ml-0"}`}>
-        <Topbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} isMobile={isMobile} />
+      <main className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${sidebarOpen && !isMobile ? "ml-64" : !isMobile ? "ml-20" : "ml-0"} print:ml-0 print:p-0 print:overflow-visible print:block`}>
+        <div className="print:hidden">
+          <Topbar toggleSidebar={() => setSidebarOpen(!sidebarOpen)} isMobile={isMobile} />
+        </div>
         
-        <div className="p-8 flex-1 flex flex-col space-y-6 overflow-y-auto min-w-0 w-full">
+        <div className="p-8 flex-1 flex flex-col space-y-6 overflow-y-auto min-w-0 w-full print:p-0 print:space-y-0 print:overflow-visible">
           <AnimatePresence mode="wait">
             <motion.div
                key="page-content"
@@ -46,14 +50,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                animate={{ opacity: 1, y: 0 }}
                exit={{ opacity: 0, y: -10 }}
                transition={{ duration: 0.3 }}
-               className="flex-1 flex flex-col space-y-6 min-w-0 w-full"
+               className="flex-1 flex flex-col space-y-6 min-w-0 w-full print:space-y-0 print:p-0 print:m-0"
             >
               {children}
             </motion.div>
           </AnimatePresence>
         </div>
 
-        <footer className="h-10 shrink-0 bg-white border-t border-gray-200 px-8 flex items-center justify-between text-[10px] text-gray-400 font-medium z-10 w-full">
+        <footer className="h-10 shrink-0 bg-white border-t border-gray-200 px-8 flex items-center justify-between text-[10px] text-gray-400 font-medium z-10 w-full print:hidden">
           <p>© 2024 RSUD Al-Mulk - Sistem Informasi Kesehatan Lingkungan</p>
           <div className="flex items-center space-x-3">
             {/* Online/Offline Status */}

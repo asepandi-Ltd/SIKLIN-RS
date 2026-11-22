@@ -12,7 +12,7 @@ import {
   AnnualKpiSummaryItem
 } from '@/lib/annualReportTypes';
 import { MasterUnit } from '@/lib/units';
-import { Indikator, Capaian } from '@/lib/store';
+import { useAppStore, Indikator, Capaian } from '@/lib/store';
 import { calculateAnnualKpiForUnit } from '@/lib/annualKpiCalculator';
 import DynamicTableBuilder from './DynamicTableBuilder';
 import {
@@ -52,7 +52,8 @@ import {
   ChevronLeft,
   Sparkles,
   Search,
-  ExternalLink
+  ExternalLink,
+  Printer
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import {
@@ -81,6 +82,7 @@ export default function UnitReportForm({
   allCapaian,
   readOnly = false
 }: UnitReportFormProps) {
+  const { currentUser, pengaturan } = useAppStore();
   const [activeStep, setActiveStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -150,15 +152,23 @@ export default function UnitReportForm({
     };
   }, [report.id, unit, report.report_year, allIndikators, allCapaian]);
 
-  // Steps configuration (MANDATORY SEQUENCE AS PER BAGIAN 6)
+  // Steps configuration (MANDATORY SEQUENCE AS PER BAGIAN 6 + CETAK DOKUMEN)
   const steps = [
     { num: 1, title: 'Profil Unit', desc: 'Identitas, Gambaran & Tupoksi', icon: Building2 },
     { num: 2, title: 'SDM & Tugas Staf', desc: 'Komposisi & Kewenangan', icon: Users },
     { num: 3, title: 'Program & Kegiatan', desc: 'Dynamic Table Builder', icon: Layers },
     { num: 4, title: 'Capaian KPI', desc: 'Integrasi Kinerja SIPAKAR', icon: BarChart2 },
     { num: 5, title: 'Hambatan Unit', desc: 'Masalah & Dukungan', icon: AlertTriangle },
-    { num: 6, title: 'Rencana Kerja', desc: 'Program & Tindak Lanjut', icon: CalendarCheck }
+    { num: 6, title: 'Rencana Kerja', desc: 'Program & Tindak Lanjut', icon: CalendarCheck },
+    { num: 7, title: 'Cetak Laporan', desc: 'Pratinjau & Cetak Resmi', icon: Printer }
   ];
+
+  const handlePrintReport = () => {
+    setActiveStep(7);
+    setTimeout(() => {
+      window.print();
+    }, 300);
+  };
 
   // Completeness check
   const completeness = {
@@ -393,7 +403,7 @@ export default function UnitReportForm({
   return (
     <div className="space-y-6">
       {/* Unit Overview Header */}
-      <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden">
+      <div className="bg-gradient-to-r from-teal-900 via-teal-800 to-slate-900 rounded-2xl p-6 text-white shadow-md relative overflow-hidden print:hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-teal-500/20 text-teal-300 border border-teal-400/30 mb-2">
@@ -407,26 +417,36 @@ export default function UnitReportForm({
             </p>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/15 min-w-[200px]">
-            <div className="flex items-center justify-between text-xs font-bold mb-1.5">
-              <span>Kelengkapan Data</span>
-              <span className="text-teal-300">{progressPercent}%</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handlePrintReport}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 text-xs font-black shadow-lg border border-white/20 transition-all hover:scale-105 active:scale-95"
+            >
+              <Printer size={16} className="text-teal-600" /> Cetak Laporan Unit
+            </button>
+
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/15 min-w-[180px]">
+              <div className="flex items-center justify-between text-xs font-bold mb-1.5">
+                <span>Kelengkapan Data</span>
+                <span className="text-teal-300">{progressPercent}%</span>
+              </div>
+              <div className="w-full bg-slate-800/80 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-teal-400 to-emerald-400 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-teal-200/70 mt-1">
+                {completedStepsCount} dari 6 modul telah diisi
+              </p>
             </div>
-            <div className="w-full bg-slate-800/80 rounded-full h-2 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-teal-400 to-emerald-400 h-full rounded-full transition-all duration-500"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-teal-200/70 mt-1">
-              {completedStepsCount} dari 6 modul telah diisi
-            </p>
           </div>
         </div>
       </div>
 
       {/* Mandatory Sequence Steps Navigation */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 print:hidden">
         {steps.map(s => {
           const isActive = activeStep === s.num;
           const isDone = 
@@ -435,7 +455,8 @@ export default function UnitReportForm({
             (s.num === 3 && completeness.programs) ||
             (s.num === 4 && completeness.kpi) ||
             (s.num === 5 && completeness.obstacles) ||
-            (s.num === 6 && completeness.plans);
+            (s.num === 6 && completeness.plans) ||
+            (s.num === 7 && progressPercent === 100);
 
           const IconComponent = s.icon;
 
@@ -478,7 +499,7 @@ export default function UnitReportForm({
         {/* STEP 1: PROFIL UNIT */}
         {/* ========================================================= */}
         {activeStep === 1 && profile && (
-          <div className="space-y-5">
+          <div className="space-y-5 print:hidden">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
@@ -602,7 +623,7 @@ export default function UnitReportForm({
         {/* STEP 2: SDM DAN PEMBAGIAN TUGAS STAF */}
         {/* ========================================================= */}
         {activeStep === 2 && (
-          <div className="space-y-6">
+          <div className="space-y-6 print:hidden">
             {/* Staffing List */}
             <div>
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
@@ -809,7 +830,7 @@ export default function UnitReportForm({
         {/* STEP 3: PROGRAM DAN KEGIATAN UNIT (DYNAMIC TABLE BUILDER) */}
         {/* ========================================================= */}
         {activeStep === 3 && (
-          <div className="space-y-4">
+          <div className="space-y-4 print:hidden">
             <DynamicTableBuilder
               tables={programTables}
               unitId={unit.id}
@@ -844,7 +865,7 @@ export default function UnitReportForm({
         {/* STEP 4: CAPAIAN KINERJA KPI UNIT */}
         {/* ========================================================= */}
         {activeStep === 4 && (
-          <div className="space-y-6">
+          <div className="space-y-6 print:hidden">
             <div className="border-b border-slate-100 pb-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -955,7 +976,7 @@ export default function UnitReportForm({
 
             {/* Monthly KPI Detail Modal */}
             {selectedKpiForDetail && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
                 <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[85vh] overflow-y-auto">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
                     <div>
@@ -1025,7 +1046,7 @@ export default function UnitReportForm({
         {/* STEP 5: HAMBATAN DAN PERMASALAHAN UNIT */}
         {/* ========================================================= */}
         {activeStep === 5 && (
-          <div className="space-y-4">
+          <div className="space-y-4 print:hidden">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
@@ -1121,7 +1142,7 @@ export default function UnitReportForm({
         {/* STEP 6: RENCANA KERJA UNIT */}
         {/* ========================================================= */}
         {activeStep === 6 && (
-          <div className="space-y-4">
+          <div className="space-y-4 print:hidden">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-slate-800 flex items-center gap-2">
@@ -1223,8 +1244,81 @@ export default function UnitReportForm({
           </div>
         )}
 
+        {/* ========================================================= */}
+        {/* STEP 7: PRATINJAU & CETAK DOKUMEN LAPORAN TAHUNAN UNIT */}
+        {/* ========================================================= */}
+        {activeStep === 7 && (
+          <div className="space-y-6">
+            {/* Top Action Toolbar (Screen Only) */}
+            <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+              <div className="space-y-1">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-teal-500/20 text-teal-300 border border-teal-400/30">
+                  <Printer size={13} /> Modul Cetak Resmi Unit
+                </div>
+                <h3 className="text-base font-black tracking-tight text-white">
+                  Pratinjau Dokumen Laporan Tahunan Unit {unit.name}
+                </h3>
+                <p className="text-xs text-slate-300">
+                  Format resmi cetak akuntabilitas kinerja unit RSUD Al-Mulk Tahun Anggaran {report.report_year}.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs shadow-md transition-all hover:scale-105 active:scale-95"
+                >
+                  <Printer size={16} /> Cetak / Simpan PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveStep(1)}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all"
+                >
+                  Edit Data Formulir
+                </button>
+              </div>
+            </div>
+
+            {/* Document Container on Step 7 */}
+            <UnitPrintableDocument
+              unit={unit}
+              report={report}
+              profile={profile}
+              staffing={staffing}
+              authorities={authorities}
+              programTables={programTables}
+              kpiList={kpiList}
+              obstacles={obstacles}
+              plans={plans}
+              pengaturan={pengaturan}
+              currentUser={currentUser}
+            />
+          </div>
+        )}
+
+        {/* Dedicated Print Output Container when activeStep !== 7 */}
+        {activeStep !== 7 && (
+          <div className="hidden print:block">
+            <UnitPrintableDocument
+              unit={unit}
+              report={report}
+              profile={profile}
+              staffing={staffing}
+              authorities={authorities}
+              programTables={programTables}
+              kpiList={kpiList}
+              obstacles={obstacles}
+              plans={plans}
+              pengaturan={pengaturan}
+              currentUser={currentUser}
+            />
+          </div>
+        )}
+
         {/* Footer Navigation Buttons (Prev / Next Step) */}
-        <div className="flex items-center justify-between border-t border-slate-100 pt-5 mt-6">
+        <div className="flex items-center justify-between border-t border-slate-100 pt-5 mt-6 print:hidden">
           <button
             onClick={() => setActiveStep(prev => Math.max(1, prev - 1))}
             disabled={activeStep === 1}
@@ -1233,15 +1327,24 @@ export default function UnitReportForm({
             <ChevronLeft size={16} /> Sebelumnya
           </button>
           <span className="text-xs text-slate-500 font-semibold">
-            Langkah {activeStep} dari 6: {steps[activeStep - 1].title}
+            Langkah {activeStep} dari 7: {steps[activeStep - 1]?.title}
           </span>
-          <button
-            onClick={() => setActiveStep(prev => Math.min(6, prev + 1))}
-            disabled={activeStep === 6}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Selanjutnya <ChevronRight size={16} />
-          </button>
+          {activeStep === 7 ? (
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-black shadow-md transition-all hover:scale-105 active:scale-95"
+            >
+              <Printer size={16} /> Cetak / Simpan PDF Sekarang
+            </button>
+          ) : (
+            <button
+              onClick={() => setActiveStep(prev => Math.min(7, prev + 1))}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold hover:bg-teal-700"
+            >
+              {activeStep === 6 ? 'Lihat Pratinjau & Cetak' : 'Selanjutnya'} <ChevronRight size={16} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1250,7 +1353,7 @@ export default function UnitReportForm({
       {/* ========================================================= */}
       {/* 1. Staff Modal */}
       {isStaffModalOpen && editingStaff && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
           <form onSubmit={handleSaveStaffing} className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <h4 className="font-extrabold text-slate-800 text-sm border-b pb-2">
               {editingStaff.id ? 'Edit Pegawai' : 'Tambah Pegawai Baru'}
@@ -1355,7 +1458,7 @@ export default function UnitReportForm({
 
       {/* 2. Authority Modal */}
       {isAuthModalOpen && editingAuth && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
           <form onSubmit={handleSaveAuthority} className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <h4 className="font-extrabold text-slate-800 text-sm border-b pb-2">
               {editingAuth.id ? 'Edit Pembagian Tugas' : 'Tambah Pembagian Tugas'}
@@ -1432,7 +1535,7 @@ export default function UnitReportForm({
 
       {/* 3. Obstacle Modal */}
       {isObsModalOpen && editingObs && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
           <form onSubmit={handleSaveObstacle} className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <h4 className="font-extrabold text-slate-800 text-sm border-b pb-2">
               {editingObs.id ? 'Edit Permasalahan / Hambatan' : 'Tambah Permasalahan / Hambatan'}
@@ -1533,7 +1636,7 @@ export default function UnitReportForm({
 
       {/* 4. Plan Modal */}
       {isPlanModalOpen && editingPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
           <form onSubmit={handleSavePlan} className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
             <h4 className="font-extrabold text-slate-800 text-sm border-b pb-2">
               {editingPlan.id ? 'Edit Rencana Kerja' : 'Tambah Rencana Kerja'}
@@ -1624,6 +1727,468 @@ export default function UnitReportForm({
           </form>
         </div>
       )}
+    </div>
+  );
+}
+
+// =========================================================================
+// OFFICIAL UNIT PRINTABLE DOCUMENT COMPONENT
+// =========================================================================
+function UnitPrintableDocument({
+  unit,
+  report,
+  profile,
+  staffing,
+  authorities,
+  programTables,
+  kpiList,
+  obstacles,
+  plans,
+  pengaturan,
+  currentUser
+}: {
+  unit: MasterUnit;
+  report: AnnualReport;
+  profile: AnnualUnitProfile | null;
+  staffing: AnnualUnitStaffing[];
+  authorities: AnnualUnitAuthority[];
+  programTables: AnnualUnitProgramTable[];
+  kpiList: AnnualKpiSummaryItem[];
+  obstacles: AnnualUnitObstacle[];
+  plans: AnnualUnitPlan[];
+  pengaturan: any;
+  currentUser: any;
+}) {
+  const totalStaff = staffing.length;
+  const totalPns = staffing.filter(s => s.employment_status === 'PNS').length;
+  const totalPppk = staffing.filter(s => s.employment_status === 'PPPK').length;
+  const totalThl = staffing.filter(s => s.employment_status === 'THL' || s.employment_status === 'Kontrak').length;
+  const totalAda = staffing.reduce((sum, s) => sum + (Number(s.available_count) || 1), 0);
+  const totalButuh = staffing.reduce((sum, s) => sum + (Number(s.required_count) || 1), 0);
+  const selisihStaff = totalButuh - totalAda;
+
+  const totalKpi = kpiList.length;
+  const tercapaiKpi = kpiList.filter(k => k.status === 'Tercapai').length;
+  const belumKpi = totalKpi - tercapaiKpi;
+  const persenKpi = totalKpi > 0 ? Math.round((tercapaiKpi / totalKpi) * 100) : 0;
+
+  return (
+    <div className="bg-white rounded-2xl p-6 sm:p-10 border border-slate-200/90 shadow-md max-w-4xl mx-auto space-y-8 font-sans text-slate-800 print:border-none print:shadow-none print:p-0 print:max-w-none print:space-y-6 print:text-black">
+      {/* KOP SURAT RESMI RSUD AL-MULK */}
+      <div className="border-b-4 border-double border-slate-900 pb-3 text-center space-y-1">
+        <h3 className="text-xs sm:text-sm font-bold tracking-widest text-slate-800 uppercase">
+          PEMERINTAH KOTA SUKABUMI
+        </h3>
+        <h4 className="text-[11px] sm:text-xs font-bold tracking-wider text-slate-700 uppercase">
+          DINAS KESEHATAN
+        </h4>
+        <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase">
+          {pengaturan?.nama_rs || 'UOBK RSUD AL-MULK KOTA SUKABUMI'}
+        </h2>
+        <p className="text-[11px] text-slate-600">
+          {pengaturan?.alamat || 'Jl. Pelabuhan II No. Km. 6, Kel. Lembursitu, Kec. Lembursitu, Kota Sukabumi, Jawa Barat 43168'}
+        </p>
+        <p className="text-[10px] text-slate-500">
+          Telp: {pengaturan?.telepon || '(0266) 6243088'} | Email: {pengaturan?.email || 'rsudalmulk@sukabumikota.go.id'}
+        </p>
+      </div>
+
+      {/* JUDUL DOKUMEN LAPORAN TAHUNAN */}
+      <div className="text-center py-2 space-y-1">
+        <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-wide uppercase">
+          LAPORAN AKUNTABILITAS KINERJA TAHUNAN
+        </h1>
+        <h2 className="text-sm sm:text-base font-extrabold text-teal-800 print:text-black uppercase">
+          UNIT {unit.name} ({unit.kategori})
+        </h2>
+        <h3 className="text-xs sm:text-sm font-bold text-slate-700 print:text-black">
+          TAHUN ANGGARAN {report.report_year}
+        </h3>
+      </div>
+
+      {/* BAB I: PROFIL DAN GAMBARAN UMUM UNIT */}
+      <div className="space-y-3 pt-2">
+        <h2 className="text-sm sm:text-base font-extrabold text-teal-900 print:text-black border-b border-slate-300 pb-1 uppercase">
+          BAB I. PROFIL DAN GAMBARAN UMUM UNIT
+        </h2>
+        <div className="space-y-3 text-xs leading-relaxed text-slate-700 print:text-black">
+          <div>
+            <h4 className="font-bold text-slate-900">1.1 Identitas dan Jam Operasional</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1 bg-slate-50 print:bg-transparent p-2.5 rounded-lg border border-slate-200 print:border-slate-300">
+              <p><b>Nama Unit:</b> {unit.name}</p>
+              <p><b>Kategori / Divisi:</b> {unit.kategori}</p>
+              <p><b>Jam Operasional:</b> {profile?.operating_hours || '24 Jam / Sesuai Jadwal Pelayanan'}</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-900">1.2 Gambaran Umum Unit</h4>
+            <p className="mt-1 whitespace-pre-line text-justify">
+              {profile?.unit_overview || `Unit ${unit.name} merupakan salah satu unit kerja pelayanan di lingkungan UOBK RSUD Al-Mulk yang menyelenggarakan kegiatan operasional pelayanan mutu penunjang kesehatan kepada masyarakat.`}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-900">1.3 Tugas Pokok dan Fungsi (Tupoksi)</h4>
+            <p className="mt-1 whitespace-pre-line text-justify">
+              {profile?.main_duties || 'Melaksanakan kegiatan pelayanan teknis operasional sesuai standar profesi dan standar operasional prosedur rumah sakit.'}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-900">1.4 Ruang Lingkup dan Jenis Pelayanan</h4>
+            <p className="mt-1 whitespace-pre-line text-justify">
+              {profile?.service_scope || '-'}
+            </p>
+          </div>
+
+          <div>
+            <h4 className="font-bold text-slate-900">1.5 Sarana, Prasarana dan Fasilitas Pelayanan</h4>
+            <p className="mt-1 whitespace-pre-line text-justify">
+              {profile?.facilities || '-'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* BAB II: SUMBER DAYA MANUSIA (SDM) DAN PEMBAGIAN TUGAS */}
+      <div className="space-y-3 pt-4 border-t border-slate-200 break-inside-avoid">
+        <h2 className="text-sm sm:text-base font-extrabold text-teal-900 print:text-black border-b border-slate-300 pb-1 uppercase">
+          BAB II. SUMBER DAYA MANUSIA (SDM) DAN PEMBAGIAN TUGAS
+        </h2>
+        <div className="space-y-3 text-xs leading-relaxed text-slate-700 print:text-black">
+          <div>
+            <h4 className="font-bold text-slate-900">2.1 Komposisi dan Analisis Ketenagaan</h4>
+            <p className="mt-1">
+              Unit {unit.name} memiliki total ketenagaan sebanyak <b>{totalStaff} orang</b> (PNS: {totalPns} orang, PPPK: {totalPppk} orang, THL/Kontrak: {totalThl} orang). Total kebutuhan riil berdasarkan analisa beban kerja adalah <b>{totalButuh} orang</b> dengan ketersediaan eksisting <b>{totalAda} orang</b> ({selisihStaff > 0 ? `kekurangan ${selisihStaff} orang` : selisihStaff < 0 ? `kelebihan ${Math.abs(selisihStaff)} orang` : 'sesuai kebutuhan riil'}).
+            </p>
+
+            <div className="border border-slate-200 rounded-lg overflow-x-auto mt-2">
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-800">
+                  <tr>
+                    <th className="p-2 w-8 text-center">No</th>
+                    <th className="p-2">Nama Pegawai</th>
+                    <th className="p-2">Pendidikan</th>
+                    <th className="p-2">Profesi</th>
+                    <th className="p-2">Jabatan</th>
+                    <th className="p-2 text-center">Status</th>
+                    <th className="p-2 text-center">Ada / Butuh</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {staffing.length > 0 ? (
+                    staffing.map((s, idx) => (
+                      <tr key={s.id}>
+                        <td className="p-2 text-center">{idx + 1}</td>
+                        <td className="p-2 font-bold text-slate-900">{s.employee_name}</td>
+                        <td className="p-2">{s.education || '-'}</td>
+                        <td className="p-2">{s.profession || '-'}</td>
+                        <td className="p-2">{s.position || '-'}</td>
+                        <td className="p-2 text-center">{s.employment_status || '-'}</td>
+                        <td className="p-2 text-center font-bold">{s.available_count || 1} / {s.required_count || 1}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="p-3 text-center text-slate-400">
+                        Belum ada data ketenagaan yang dicatat.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <h4 className="font-bold text-slate-900">2.2 Uraian Tugas Pokok dan Kewenangan Staf</h4>
+            <div className="border border-slate-200 rounded-lg overflow-x-auto mt-2">
+              <table className="w-full text-left text-[11px]">
+                <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-800">
+                  <tr>
+                    <th className="p-2 w-8 text-center">No</th>
+                    <th className="p-2">Nama Pegawai</th>
+                    <th className="p-2">Jabatan</th>
+                    <th className="p-2">Tugas Pokok</th>
+                    <th className="p-2">Tanggung Jawab</th>
+                    <th className="p-2">Kewenangan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {authorities.length > 0 ? (
+                    authorities.map((a, idx) => (
+                      <tr key={a.id}>
+                        <td className="p-2 text-center">{idx + 1}</td>
+                        <td className="p-2 font-bold text-slate-900">{a.employee_name}</td>
+                        <td className="p-2 font-semibold text-slate-800">{a.position || '-'}</td>
+                        <td className="p-2">{a.main_duties || '-'}</td>
+                        <td className="p-2">{a.responsibilities || '-'}</td>
+                        <td className="p-2">{a.authorities || '-'}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="p-3 text-center text-slate-400">
+                        Belum ada rincian uraian tugas staf yang dicatat.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* BAB III: PROGRAM DAN KEGIATAN OPERASIONAL UNIT (DYNAMIC TABLES) */}
+      <div className="space-y-3 pt-4 border-t border-slate-200 break-inside-avoid">
+        <h2 className="text-sm sm:text-base font-extrabold text-teal-900 print:text-black border-b border-slate-300 pb-1 uppercase">
+          BAB III. PROGRAM DAN KEGIATAN OPERASIONAL UNIT
+        </h2>
+        <div className="space-y-4 text-xs leading-relaxed text-slate-700 print:text-black">
+          {programTables.length > 0 ? (
+            programTables.map((tbl, tIdx) => (
+              <div key={tbl.id} className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-slate-900">
+                    3.{tIdx + 1} {tbl.table_title}
+                  </h4>
+                </div>
+
+                <div className="border border-slate-200 rounded-lg overflow-x-auto">
+                  <table className="w-full text-left text-[11px]">
+                    <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-800">
+                      <tr>
+                        <th className="p-2 w-8 text-center">No</th>
+                        {tbl.columns_definition.map(col => (
+                          <th key={col.key} className="p-2">
+                            {col.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {tbl.rows_data && tbl.rows_data.length > 0 ? (
+                        tbl.rows_data.map((row, rIdx) => (
+                          <tr key={rIdx}>
+                            <td className="p-2 text-center text-slate-500">{rIdx + 1}</td>
+                            {tbl.columns_definition.map(col => (
+                              <td key={col.key} className="p-2">
+                                {row[col.key] !== undefined && row[col.key] !== null ? String(row[col.key]) : '-'}
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={tbl.columns_definition.length + 1} className="p-3 text-center text-slate-400">
+                            Belum ada baris data kegiatan.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {tbl.analisa && (
+                  <p className="text-[11px] text-slate-600 print:text-black italic">
+                    <b>Analisis Kegiatan:</b> {tbl.analisa}
+                  </p>
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="italic text-slate-500">
+              Kegiatan operasional pelayanan unit berjalan secara teratur sesuai Standar Prosedur Operasional (SPO) dan pedoman teknis yang berlaku di lingkungan UOBK RSUD Al-Mulk.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* BAB IV: CAPAIAN INDIKATOR KINERJA (KPI) MUTU TAHUN {report.report_year} */}
+      <div className="space-y-3 pt-4 border-t border-slate-200 break-inside-avoid">
+        <h2 className="text-sm sm:text-base font-extrabold text-teal-900 print:text-black border-b border-slate-300 pb-1 uppercase">
+          BAB IV. CAPAIAN INDIKATOR KINERJA (KPI) MUTU TAHUN {report.report_year}
+        </h2>
+        <div className="space-y-3 text-xs leading-relaxed text-slate-700 print:text-black">
+          <p>
+            Berdasarkan hasil pengukuran indikator mutu pelayanan secara berkala pada tahun {report.report_year}, unit {unit.name} mencatat <b>{tercapaiKpi} dari {totalKpi} indikator</b> ({persenKpi}%) berhasil mencapai target kinerja mutu yang ditetapkan.
+          </p>
+
+          <div className="border border-slate-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-800">
+                <tr>
+                  <th className="p-2 w-8 text-center">No</th>
+                  <th className="p-2 w-20">Kode</th>
+                  <th className="p-2">Indikator Kinerja Mutu</th>
+                  <th className="p-2 text-center">Target</th>
+                  <th className="p-2 text-center">Realisasi</th>
+                  <th className="p-2 text-center">Bulan Lapor</th>
+                  <th className="p-2 text-center">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {kpiList.length > 0 ? (
+                  kpiList.map((kpi, idx) => (
+                    <tr key={kpi.kode}>
+                      <td className="p-2 text-center">{idx + 1}</td>
+                      <td className="p-2 font-mono font-bold text-teal-700 print:text-black">{kpi.kode}</td>
+                      <td className="p-2 font-medium text-slate-800 print:text-black">{kpi.nama}</td>
+                      <td className="p-2 text-center whitespace-nowrap">{kpi.target} {kpi.satuan}</td>
+                      <td className="p-2 text-center font-bold whitespace-nowrap">
+                        {kpi.months_reported > 0 ? `${kpi.capaian_annual} ${kpi.satuan}` : '-'}
+                      </td>
+                      <td className="p-2 text-center">{kpi.months_reported} bln</td>
+                      <td className="p-2 text-center font-bold">
+                        <span className={`px-2 py-0.5 rounded text-[10px] ${
+                          kpi.status === 'Tercapai'
+                            ? 'bg-emerald-100 text-emerald-800 print:border print:border-emerald-600'
+                            : kpi.status === 'Belum Melapor'
+                            ? 'bg-slate-100 text-slate-600'
+                            : 'bg-rose-100 text-rose-800 print:border print:border-rose-600'
+                        }`}>
+                          {kpi.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="p-3 text-center text-slate-400">
+                      Belum ada indikator KPI terdaftar untuk unit ini.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* BAB V: HAMBATAN DAN UPAYA PEMECAHAN MASALAH */}
+      <div className="space-y-3 pt-4 border-t border-slate-200 break-inside-avoid">
+        <h2 className="text-sm sm:text-base font-extrabold text-teal-900 print:text-black border-b border-slate-300 pb-1 uppercase">
+          BAB V. HAMBATAN DAN UPAYA PEMECAHAN MASALAH
+        </h2>
+        <div className="space-y-3 text-xs leading-relaxed text-slate-700 print:text-black">
+          <div className="border border-slate-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-800">
+                <tr>
+                  <th className="p-2 w-8 text-center">No</th>
+                  <th className="p-2">Masalah / Hambatan</th>
+                  <th className="p-2">Kategori</th>
+                  <th className="p-2">Akar Masalah</th>
+                  <th className="p-2">Dampak Pelayanan</th>
+                  <th className="p-2">Dukungan Diharapkan</th>
+                  <th className="p-2 text-center">Prioritas</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {obstacles.length > 0 ? (
+                  obstacles.map((o, idx) => (
+                    <tr key={o.id}>
+                      <td className="p-2 text-center">{idx + 1}</td>
+                      <td className="p-2 font-bold text-slate-900">{o.problem_title}</td>
+                      <td className="p-2 font-medium">{o.category}</td>
+                      <td className="p-2">{o.root_cause || '-'}</td>
+                      <td className="p-2">{o.service_impact || '-'}</td>
+                      <td className="p-2">{o.management_support || '-'}</td>
+                      <td className="p-2 text-center font-bold">{o.priority}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="p-3 text-center text-slate-400">
+                      Tidak terdapat hambatan kritis operasional selama tahun pelaporan.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* BAB VI: RENCANA KERJA DAN TINDAK LANJUT TAHUN {report.report_year + 1} */}
+      <div className="space-y-3 pt-4 border-t border-slate-200 break-inside-avoid">
+        <h2 className="text-sm sm:text-base font-extrabold text-teal-900 print:text-black border-b border-slate-300 pb-1 uppercase">
+          BAB VI. RENCANA KERJA DAN TINDAK LANJUT TAHUN {report.report_year + 1}
+        </h2>
+        <div className="space-y-3 text-xs leading-relaxed text-slate-700 print:text-black">
+          <div className="border border-slate-200 rounded-lg overflow-x-auto">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-800">
+                <tr>
+                  <th className="p-2 w-8 text-center">No</th>
+                  <th className="p-2">Rencana Tindakan / Kegiatan</th>
+                  <th className="p-2">Masalah Terkait</th>
+                  <th className="p-2 text-center">Target Waktu</th>
+                  <th className="p-2">Kebutuhan Sumber Daya</th>
+                  <th className="p-2">Indikator Sukses</th>
+                  <th className="p-2 text-center">Prioritas</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {plans.length > 0 ? (
+                  plans.map((p, idx) => (
+                    <tr key={p.id}>
+                      <td className="p-2 text-center">{idx + 1}</td>
+                      <td className="p-2 font-bold text-slate-900">{p.action_plan}</td>
+                      <td className="p-2">{p.problem || '-'}</td>
+                      <td className="p-2 text-center font-semibold">{p.target_completion || '-'}</td>
+                      <td className="p-2">{p.resource_needs || '-'}</td>
+                      <td className="p-2">{p.success_indicator || '-'}</td>
+                      <td className="p-2 text-center font-bold">{p.priority}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="p-3 text-center text-slate-400">
+                      Rencana kerja tindak lanjut terintegrasi dengan RKA tahun {report.report_year + 1}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* LEMBAR PENGESAHAN DUA PIHAK (RESMI RSUD AL-MULK) */}
+      <div className="pt-8 border-t border-slate-200 break-inside-avoid">
+        <div className="grid grid-cols-2 gap-8 text-xs text-slate-800 print:text-black">
+          {/* Kolom Kiri: Mengetahui Kepala Seksi */}
+          <div className="text-center space-y-1">
+            <p className="font-medium">Mengetahui,</p>
+            <p className="font-bold">Kepala Seksi Penunjang, Mutu, Humas dan Pemasaran</p>
+            <p>UOBK RSUD Al-Mulk Kota Sukabumi</p>
+            <div className="h-20" />
+            <p className="font-bold underline text-slate-900 print:text-black">
+              Dr. Fitri Wulandari
+            </p>
+            <p className="text-[11px] text-slate-600 print:text-black">
+              NIP. 19820415 200801 2 011
+            </p>
+          </div>
+
+          {/* Kolom Kanan: Dibuat Oleh Kepala Unit */}
+          <div className="text-center space-y-1">
+            <p className="font-medium">Sukabumi, 31 Desember {report.report_year}</p>
+            <p className="font-bold">Kepala Unit {unit.name}</p>
+            <p>UOBK RSUD Al-Mulk Kota Sukabumi</p>
+            <div className="h-20" />
+            <p className="font-bold underline text-slate-900 print:text-black">
+              {currentUser?.role === 'Kepala Unit' && currentUser?.unit === unit.name ? currentUser?.nama : `Kepala Unit ${unit.name}`}
+            </p>
+            <p className="text-[11px] text-slate-600 print:text-black">
+              NIP. ....................................................
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
