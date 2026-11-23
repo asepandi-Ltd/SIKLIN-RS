@@ -148,12 +148,25 @@ CREATE TABLE IF NOT EXISTS public.annual_unit_plans (
   cause TEXT,
   action_plan TEXT NOT NULL,
   target_completion VARCHAR(100),
+  waktu VARCHAR(100) DEFAULT 'Januari',
   resource_needs TEXT,
   success_indicator TEXT,
   priority VARCHAR(50) DEFAULT 'Sedang', -- Tinggi, Sedang, Rendah
+  urgensi VARCHAR(50) DEFAULT 'Sedang',
+  volume NUMERIC DEFAULT 1,
+  satuan VARCHAR(100) DEFAULT 'Paket',
+  harga_satuan NUMERIC DEFAULT 0,
+  total_biaya NUMERIC DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE public.annual_unit_plans ADD COLUMN IF NOT EXISTS volume NUMERIC DEFAULT 1;
+ALTER TABLE public.annual_unit_plans ADD COLUMN IF NOT EXISTS satuan VARCHAR(100) DEFAULT 'Paket';
+ALTER TABLE public.annual_unit_plans ADD COLUMN IF NOT EXISTS harga_satuan NUMERIC DEFAULT 0;
+ALTER TABLE public.annual_unit_plans ADD COLUMN IF NOT EXISTS total_biaya NUMERIC DEFAULT 0;
+ALTER TABLE public.annual_unit_plans ADD COLUMN IF NOT EXISTS waktu VARCHAR(100) DEFAULT 'Januari';
+ALTER TABLE public.annual_unit_plans ADD COLUMN IF NOT EXISTS urgensi VARCHAR(50) DEFAULT 'Sedang';
 
 CREATE INDEX IF NOT EXISTS idx_unit_plans_report_unit ON public.annual_unit_plans(report_id, unit_id);
 
@@ -166,12 +179,25 @@ CREATE TABLE IF NOT EXISTS public.annual_section_plans (
   problem TEXT,
   strategic_action TEXT NOT NULL,
   target_completion VARCHAR(100),
+  waktu VARCHAR(100) DEFAULT 'Januari',
   resource_needs TEXT,
   success_indicator TEXT,
   priority VARCHAR(50) DEFAULT 'Sedang',
+  urgensi VARCHAR(50) DEFAULT 'Sedang',
+  volume NUMERIC DEFAULT 1,
+  satuan VARCHAR(100) DEFAULT 'Paket',
+  harga_satuan NUMERIC DEFAULT 0,
+  total_biaya NUMERIC DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE public.annual_section_plans ADD COLUMN IF NOT EXISTS volume NUMERIC DEFAULT 1;
+ALTER TABLE public.annual_section_plans ADD COLUMN IF NOT EXISTS satuan VARCHAR(100) DEFAULT 'Paket';
+ALTER TABLE public.annual_section_plans ADD COLUMN IF NOT EXISTS harga_satuan NUMERIC DEFAULT 0;
+ALTER TABLE public.annual_section_plans ADD COLUMN IF NOT EXISTS total_biaya NUMERIC DEFAULT 0;
+ALTER TABLE public.annual_section_plans ADD COLUMN IF NOT EXISTS waktu VARCHAR(100) DEFAULT 'Januari';
+ALTER TABLE public.annual_section_plans ADD COLUMN IF NOT EXISTS urgensi VARCHAR(50) DEFAULT 'Sedang';
 
 CREATE INDEX IF NOT EXISTS idx_section_plans_report ON public.annual_section_plans(report_id);
 

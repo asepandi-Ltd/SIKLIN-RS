@@ -5,7 +5,7 @@ import { useAppStore } from "@/lib/store";
 import { ACTIVE_MASTER_UNITS, normalizeUnit, MasterUnit } from "@/lib/units";
 import SectionReportDashboard from "@/components/laporan/SectionReportDashboard";
 import UnitReportForm from "@/components/laporan/UnitReportForm";
-import { getOrCreateAnnualReport } from "@/lib/annualReportService";
+import { getOrCreateAnnualReport, checkAnnualTablesExist } from "@/lib/annualReportService";
 import { AnnualReport } from "@/lib/annualReportTypes";
 import {
   FileText,
@@ -14,7 +14,10 @@ import {
   Users,
   ShieldCheck,
   UserCheck,
-  Eye
+  Eye,
+  AlertTriangle,
+  Cloud,
+  CheckCircle2
 } from "lucide-react";
 
 export default function LaporanPage() {
@@ -22,12 +25,14 @@ export default function LaporanPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [annualReport, setAnnualReport] = useState<AnnualReport | null>(null);
+  const [isCloudActive, setIsCloudActive] = useState<boolean | null>(null);
 
   // For Kepala Unit or previewing as a specific unit
   const [unitMode, setUnitMode] = useState<MasterUnit | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    checkAnnualTablesExist().then(active => setIsCloudActive(active));
   }, []);
 
   // Determine user unit
@@ -69,6 +74,21 @@ export default function LaporanPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 print:p-0 print:m-0 print:max-w-none print:space-y-0">
+      {/* Cloud Database Sync Status Alert */}
+      {isCloudActive === false && (
+        <div className="bg-amber-50/90 border border-amber-300 rounded-xl p-3 text-xs text-amber-950 flex items-start gap-2.5 shadow-2xs print:hidden">
+          <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-extrabold text-amber-900">
+              Pemberitahuan Sinkronisasi Cloud: Mode Penyimpanan Lokal Browser Aktif
+            </p>
+            <p className="text-[11px] leading-relaxed text-amber-800">
+              Perubahan yang diisi oleh masing-masing unit saat ini tersimpan di memori peramban (Local Storage) perangkat masing-masing, sehingga belum otomatis tampil pada perangkat lain. Agar seluruh unit dan pimpinan dapat saling melihat hasil pengisian secara langsung dan real-time lintas komputer, jalankan script SQL migrasi <code className="bg-amber-100/90 text-amber-900 px-1 py-0.5 rounded font-mono font-bold">supabase_annual_report_migration.sql</code> pada menu SQL Editor Supabase.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Top Banner / Role Notification Bar (if Super Admin or viewing as unit) */}
       {isSuperAdminOrKasi && (
         <div className="bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between text-xs gap-3 print:hidden">

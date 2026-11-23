@@ -549,7 +549,23 @@ export async function getUnitPlans(reportId: string, unitId?: string): Promise<A
       if (unitId) query = query.eq('unit_id', unitId);
       const { data, error } = await query.order('created_at', { ascending: true });
       if (!error && data && data.length > 0) {
+        // Sync to local cache
+        const stored = getStored<AnnualUnitPlan[]>(`sipakar_plans_${reportId}`, []);
+        const otherUnits = unitId ? stored.filter(p => p.unit_id !== unitId) : [];
+        setStored(`sipakar_plans_${reportId}`, [...otherUnits, ...data]);
         return data as AnnualUnitPlan[];
+      } else if (!error && (!data || data.length === 0)) {
+        // If Supabase table is empty but localStorage has existing plans, auto-sync local to Supabase
+        const stored = getStored<AnnualUnitPlan[]>(`sipakar_plans_${reportId}`, []);
+        const localPlans = unitId ? stored.filter(p => p.unit_id === unitId) : stored;
+        if (localPlans.length > 0) {
+          try {
+            await supabase.from('annual_unit_plans').upsert(localPlans);
+            return localPlans;
+          } catch (upsertErr) {
+            logDbError('autoMigrateUnitPlans', upsertErr);
+          }
+        }
       }
     } catch (err) {
       logDbError('getUnitPlans catch', err);
@@ -617,8 +633,19 @@ export async function getSectionPlans(reportId: string): Promise<AnnualSectionPl
         .select('*')
         .eq('report_id', reportId)
         .order('created_at', { ascending: true });
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
+        setStored(`sipakar_sec_plans_${reportId}`, data);
         return data as AnnualSectionPlan[];
+      } else if (!error && (!data || data.length === 0)) {
+        const stored = getStored<AnnualSectionPlan[]>(`sipakar_sec_plans_${reportId}`, []);
+        if (stored.length > 0) {
+          try {
+            await supabase.from('annual_section_plans').upsert(stored);
+            return stored;
+          } catch (upsertErr) {
+            logDbError('autoMigrateSectionPlans', upsertErr);
+          }
+        }
       }
     } catch (err) {
       logDbError('getSectionPlans catch', err);

@@ -180,7 +180,7 @@ export function generateAnnualReportPdf(data: AnnualReportFullData, pengaturan?:
   if (data.sectionPlans && data.sectionPlans.length > 0) {
     autoTable(doc, {
       startY: currentY,
-      head: [['No', 'Nama Kegiatan/Barang', 'Masalah/Latar Belakang', 'Vol', 'Satuan', 'Harga (Rp)', 'Jumlah (Rp)', 'Indikator Sukses']],
+      head: [['No', 'Nama Kegiatan/Barang', 'Masalah/Latar Belakang', 'Vol', 'Satuan', 'Harga (Rp)', 'Jumlah (Rp)', 'Waktu', 'Urgensi', 'Indikator Sukses']],
       body: data.sectionPlans.map((sp, idx) => {
         const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
         const harga = Number(sp.harga_satuan) || 0;
@@ -193,6 +193,8 @@ export function generateAnnualReportPdf(data: AnnualReportFullData, pengaturan?:
           sp.satuan || 'Paket',
           harga > 0 ? harga.toLocaleString('id-ID') : '-',
           jml > 0 ? jml.toLocaleString('id-ID') : '-',
+          sp.waktu || sp.target_completion || 'Januari',
+          sp.urgensi || sp.priority || 'Sedang',
           sp.success_indicator || '-'
         ];
       }),
@@ -414,7 +416,7 @@ export function generateAnnualReportPdf(data: AnnualReportFullData, pengaturan?:
     if (plans.length > 0) {
       autoTable(doc, {
         startY: currentY,
-        head: [['No', 'Nama Kegiatan/Barang', 'Masalah/Latar Belakang', 'Vol', 'Satuan', 'Harga (Rp)', 'Jumlah (Rp)', 'Indikator Sukses']],
+        head: [['No', 'Nama Kegiatan/Barang', 'Masalah/Latar Belakang', 'Vol', 'Satuan', 'Harga (Rp)', 'Jumlah (Rp)', 'Waktu', 'Urgensi', 'Indikator Sukses']],
         body: plans.map((p, pIdx) => {
           const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
           const harga = Number(p.harga_satuan) || 0;
@@ -427,6 +429,8 @@ export function generateAnnualReportPdf(data: AnnualReportFullData, pengaturan?:
             p.satuan || 'Paket',
             harga > 0 ? harga.toLocaleString('id-ID') : '-',
             jml > 0 ? jml.toLocaleString('id-ID') : '-',
+            p.waktu || p.target_completion || 'Januari',
+            p.urgensi || p.priority || 'Sedang',
             p.success_indicator || '-'
           ];
         }),

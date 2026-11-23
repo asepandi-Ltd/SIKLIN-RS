@@ -41,6 +41,7 @@ import {
   Layers,
   BarChart2,
   AlertTriangle,
+  Calendar,
   CalendarCheck,
   CheckCircle2,
   Save,
@@ -351,6 +352,8 @@ export default function UnitReportForm({
     const vol = Number(editingPlan.volume) > 0 ? Number(editingPlan.volume) : 1;
     const harga = Number(editingPlan.harga_satuan) || 0;
     const total = vol * harga;
+    const waktuBulan = editingPlan.waktu || editingPlan.target_completion || 'Januari';
+    const urgensiVal = (editingPlan.urgensi || editingPlan.priority || 'Sedang') as 'Tinggi' | 'Sedang' | 'Rendah';
 
     const planObj: AnnualUnitPlan = {
       id: editingPlan.id || `pln-${Date.now()}`,
@@ -359,10 +362,12 @@ export default function UnitReportForm({
       problem: editingPlan.problem || '',
       cause: editingPlan.cause || '',
       action_plan: editingPlan.action_plan,
-      target_completion: editingPlan.target_completion || 'Sepanjang Tahun',
+      target_completion: waktuBulan,
+      waktu: waktuBulan,
       resource_needs: editingPlan.resource_needs || '',
       success_indicator: editingPlan.success_indicator || '',
-      priority: (editingPlan.priority as any) || 'Sedang',
+      priority: urgensiVal,
+      urgensi: urgensiVal,
       volume: vol,
       satuan: editingPlan.satuan || 'Paket',
       harga_satuan: harga,
@@ -1170,9 +1175,11 @@ export default function UnitReportForm({
                       satuan: 'Paket',
                       harga_satuan: 0,
                       total_biaya: 0,
-                      success_indicator: '',
+                      target_completion: 'Januari',
+                      waktu: 'Januari',
                       priority: 'Sedang',
-                      target_completion: 'Sepanjang Tahun'
+                      urgensi: 'Sedang',
+                      success_indicator: ''
                     });
                     setIsPlanModalOpen(true);
                   }}
@@ -1191,6 +1198,8 @@ export default function UnitReportForm({
                     <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[200px]">Nama Kegiatan/Barang</th>
                     <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[180px]">Masalah/Latar Belakang</th>
                     <th colSpan={4} className="border border-slate-500/50 p-2 text-center bg-[#8cb73b]">Rincian Perhitungan</th>
+                    <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center min-w-[110px]">Waktu</th>
+                    <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center min-w-[95px]">Urgensi</th>
                     <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[180px]">Indikator Sukses</th>
                     {!readOnly && <th rowSpan={2} className="border border-slate-500/50 p-2 text-center w-20">Aksi</th>}
                   </tr>
@@ -1209,6 +1218,8 @@ export default function UnitReportForm({
                       const jumlah = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0)
                         ? Number(p.total_biaya)
                         : vol * harga;
+                      const waktuText = p.waktu || p.target_completion || 'Januari';
+                      const urgensiText = p.urgensi || p.priority || 'Sedang';
 
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 border-b border-slate-200">
@@ -1222,6 +1233,21 @@ export default function UnitReportForm({
                           </td>
                           <td className="p-2 text-right font-bold text-emerald-800 border-r border-slate-200 whitespace-nowrap">
                             {jumlah > 0 ? `Rp ${jumlah.toLocaleString('id-ID')}` : '-'}
+                          </td>
+                          <td className="p-2 text-center font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                              <Calendar size={11} className="text-teal-600" />
+                              {waktuText}
+                            </span>
+                          </td>
+                          <td className="p-2 text-center border-r border-slate-200 whitespace-nowrap">
+                            <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              urgensiText === 'Tinggi' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                              urgensiText === 'Rendah' ? 'bg-slate-100 text-slate-700 border border-slate-200' :
+                              'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}>
+                              {urgensiText}
+                            </span>
                           </td>
                           <td className="p-2.5 text-slate-700 border-r border-slate-200">{p.success_indicator || '-'}</td>
                           {!readOnly && (
@@ -1252,7 +1278,7 @@ export default function UnitReportForm({
                     })
                   ) : (
                     <tr>
-                      <td colSpan={readOnly ? 8 : 9} className="p-6 text-center text-slate-400">
+                      <td colSpan={readOnly ? 10 : 11} className="p-6 text-center text-slate-400">
                         Belum ada rencana kerja yang ditambahkan.
                       </td>
                     </tr>
@@ -1274,7 +1300,7 @@ export default function UnitReportForm({
                           return acc + j;
                         }, 0).toLocaleString('id-ID')}
                       </td>
-                      <td colSpan={readOnly ? 1 : 2}></td>
+                      <td colSpan={readOnly ? 3 : 4}></td>
                     </tr>
                   </tfoot>
                 )}
@@ -1772,6 +1798,43 @@ export default function UnitReportForm({
                 </div>
               </div>
 
+              {/* Kolom Waktu & Urgensi sebelum Indikator Sukses */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Waktu Pelaksanaan (Bulan)
+                  </label>
+                  <select
+                    value={editingPlan.waktu || editingPlan.target_completion || 'Januari'}
+                    onChange={e => setEditingPlan({ ...editingPlan, waktu: e.target.value, target_completion: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:bg-white outline-none focus:ring-1 focus:ring-teal-500"
+                  >
+                    {[
+                      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+                      'Sepanjang Tahun / Berkala'
+                    ].map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    Tingkat Urgensi
+                  </label>
+                  <select
+                    value={editingPlan.urgensi || editingPlan.priority || 'Sedang'}
+                    onChange={e => setEditingPlan({ ...editingPlan, urgensi: e.target.value as any, priority: e.target.value as any })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:bg-white outline-none focus:ring-1 focus:ring-teal-500"
+                  >
+                    <option value="Rendah">Rendah</option>
+                    <option value="Sedang">Sedang</option>
+                    <option value="Tinggi">Tinggi</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Indikator Sukses</label>
                 <textarea
@@ -2201,6 +2264,8 @@ function UnitPrintableDocument({
                   <th rowSpan={2} className="border border-slate-500/50 p-2">Nama Kegiatan/Barang</th>
                   <th rowSpan={2} className="border border-slate-500/50 p-2">Masalah/Latar Belakang</th>
                   <th colSpan={4} className="border border-slate-500/50 p-1.5 text-center bg-[#8cb73b]">Rincian Perhitungan</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2 text-center w-20">Waktu</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2 text-center w-16">Urgensi</th>
                   <th rowSpan={2} className="border border-slate-500/50 p-2">Indikator Sukses</th>
                 </tr>
                 <tr>
@@ -2218,6 +2283,8 @@ function UnitPrintableDocument({
                     const jumlah = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0)
                       ? Number(p.total_biaya)
                       : vol * harga;
+                    const waktuText = p.waktu || p.target_completion || 'Januari';
+                    const urgensiText = p.urgensi || p.priority || 'Sedang';
 
                     return (
                       <tr key={p.id}>
@@ -2232,13 +2299,15 @@ function UnitPrintableDocument({
                         <td className="p-2 text-right font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
                           {jumlah > 0 ? `Rp ${jumlah.toLocaleString('id-ID')}` : '-'}
                         </td>
+                        <td className="p-2 text-center border-r border-slate-200 whitespace-nowrap">{waktuText}</td>
+                        <td className="p-2 text-center border-r border-slate-200 font-bold whitespace-nowrap">{urgensiText}</td>
                         <td className="p-2">{p.success_indicator || '-'}</td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan={8} className="p-3 text-center text-slate-400">
+                    <td colSpan={10} className="p-3 text-center text-slate-400">
                       Rencana kerja tindak lanjut terintegrasi dengan RKA tahun {report.report_year + 1}.
                     </td>
                   </tr>
@@ -2260,7 +2329,7 @@ function UnitPrintableDocument({
                         return acc + j;
                       }, 0).toLocaleString('id-ID')}
                     </td>
-                    <td></td>
+                    <td colSpan={3}></td>
                   </tr>
                 </tfoot>
               )}

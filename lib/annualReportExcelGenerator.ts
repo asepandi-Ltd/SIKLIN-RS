@@ -83,7 +83,7 @@ export function generateAnnualReportExcel(data: AnnualReportFullData) {
     ['RENCANA KERJA DAN TINDAK LANJUT SEKSI PENUNJANG'],
     [`UOBK RSUD AL-MULK KOTA SUKABUMI - PERIODE PERENCANAAN ${year + 1}`],
     [],
-    ['No', 'Level / Unit', 'Nama Kegiatan / Barang', 'Masalah / Latar Belakang', 'Volume', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)', 'Indikator Sukses']
+    ['No', 'Level / Unit', 'Nama Kegiatan / Barang', 'Masalah / Latar Belakang', 'Volume', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)', 'Waktu', 'Urgensi', 'Indikator Sukses']
   ];
 
   let planIdx = 1;
@@ -102,6 +102,8 @@ export function generateAnnualReportExcel(data: AnnualReportFullData) {
       sp.satuan || 'Paket',
       harga,
       jml,
+      sp.waktu || sp.target_completion || 'Januari',
+      sp.urgensi || sp.priority || 'Sedang',
       sp.success_indicator || '-'
     ]);
   });
@@ -122,6 +124,8 @@ export function generateAnnualReportExcel(data: AnnualReportFullData) {
         p.satuan || 'Paket',
         harga,
         jml,
+        p.waktu || p.target_completion || 'Januari',
+        p.urgensi || p.priority || 'Sedang',
         p.success_indicator || '-'
       ]);
     });

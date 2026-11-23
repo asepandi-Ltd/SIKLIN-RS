@@ -140,9 +140,11 @@ export interface AnnualUnitPlan {
   cause?: string;
   action_plan: string; // Nama Kegiatan/Barang
   target_completion?: string;
+  waktu?: string; // Waktu pelaksanaan (Bulan)
   resource_needs?: string;
   success_indicator: string; // Indikator Sukses
   priority?: 'Tinggi' | 'Sedang' | 'Rendah';
+  urgensi?: 'Tinggi' | 'Sedang' | 'Rendah'; // Urgensi (Rendah, Sedang, Tinggi)
   // Rincian Perhitungan
   volume?: number;
   satuan?: string;
@@ -160,9 +162,11 @@ export interface AnnualSectionPlan {
   problem: string; // Masalah/Latar Belakang
   strategic_action: string; // Nama Kegiatan/Barang
   target_completion?: string;
+  waktu?: string; // Waktu pelaksanaan (Bulan)
   resource_needs?: string;
   success_indicator: string; // Indikator Sukses
   priority?: 'Tinggi' | 'Sedang' | 'Rendah';
+  urgensi?: 'Tinggi' | 'Sedang' | 'Rendah'; // Urgensi (Rendah, Sedang, Tinggi)
   // Rincian Perhitungan
   volume?: number;
   satuan?: string;
