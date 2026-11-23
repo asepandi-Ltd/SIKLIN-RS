@@ -136,13 +136,18 @@ export interface AnnualUnitPlan {
   report_id: string;
   unit_id: string;
   problem_reference?: string;
-  problem: string;
-  cause: string;
-  action_plan: string;
-  target_completion: string;
-  resource_needs: string;
-  success_indicator: string;
-  priority: 'Tinggi' | 'Sedang' | 'Rendah';
+  problem: string; // Masalah/Latar Belakang
+  cause?: string;
+  action_plan: string; // Nama Kegiatan/Barang
+  target_completion?: string;
+  resource_needs?: string;
+  success_indicator: string; // Indikator Sukses
+  priority?: 'Tinggi' | 'Sedang' | 'Rendah';
+  // Rincian Perhitungan
+  volume?: number;
+  satuan?: string;
+  harga_satuan?: number;
+  total_biaya?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -152,12 +157,17 @@ export interface AnnualSectionPlan {
   report_id: string;
   section_plan_title: string;
   source_unit_ids: string[];
-  problem: string;
-  strategic_action: string;
-  target_completion: string;
-  resource_needs: string;
-  success_indicator: string;
-  priority: 'Tinggi' | 'Sedang' | 'Rendah';
+  problem: string; // Masalah/Latar Belakang
+  strategic_action: string; // Nama Kegiatan/Barang
+  target_completion?: string;
+  resource_needs?: string;
+  success_indicator: string; // Indikator Sukses
+  priority?: 'Tinggi' | 'Sedang' | 'Rendah';
+  // Rincian Perhitungan
+  volume?: number;
+  satuan?: string;
+  harga_satuan?: number;
+  total_biaya?: number;
   created_at?: string;
   updated_at?: string;
 }

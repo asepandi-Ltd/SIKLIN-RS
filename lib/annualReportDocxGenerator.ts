@@ -212,25 +212,33 @@ export async function generateAnnualReportDocx(data: AnnualReportFullData, penga
       new TableRow({
         children: [
           tableCell('No', true, 5, AlignmentType.CENTER),
-          tableCell('Program / Rencana Strategis', true, 30),
-          tableCell('Akar Masalah / Latar Belakang', true, 25),
-          tableCell('Target Waktu', true, 15, AlignmentType.CENTER),
-          tableCell('Kebutuhan Sumber Daya', true, 15),
-          tableCell('Prioritas', true, 10, AlignmentType.CENTER)
+          tableCell('Nama Kegiatan / Barang', true, 22),
+          tableCell('Masalah / Latar Belakang', true, 20),
+          tableCell('Vol', true, 6, AlignmentType.CENTER),
+          tableCell('Satuan', true, 10, AlignmentType.CENTER),
+          tableCell('Harga Satuan (Rp)', true, 13, AlignmentType.RIGHT),
+          tableCell('Jumlah (Rp)', true, 14, AlignmentType.RIGHT),
+          tableCell('Indikator Sukses', true, 15)
         ]
       })
     ];
 
     data.sectionPlans.forEach((plan, idx) => {
+      const vol = Number(plan.volume) > 0 ? Number(plan.volume) : 1;
+      const harga = Number(plan.harga_satuan) || 0;
+      const jml = (plan.total_biaya !== undefined && plan.total_biaya !== null && Number(plan.total_biaya) > 0) ? Number(plan.total_biaya) : vol * harga;
+
       planRows.push(
         new TableRow({
           children: [
             tableCell(String(idx + 1), false, 5, AlignmentType.CENTER),
-            tableCell(plan.strategic_action || plan.section_plan_title),
-            tableCell(plan.problem || '-'),
-            tableCell(plan.target_completion || '-', false, 15, AlignmentType.CENTER),
-            tableCell(plan.resource_needs || '-'),
-            tableCell(plan.priority || 'Sedang', false, 10, AlignmentType.CENTER)
+            tableCell(plan.strategic_action || plan.section_plan_title, false, 22),
+            tableCell(plan.problem || '-', false, 20),
+            tableCell(String(vol), false, 6, AlignmentType.CENTER),
+            tableCell(plan.satuan || 'Paket', false, 10, AlignmentType.CENTER),
+            tableCell(harga > 0 ? `Rp ${harga.toLocaleString('id-ID')}` : '-', false, 13, AlignmentType.RIGHT),
+            tableCell(jml > 0 ? `Rp ${jml.toLocaleString('id-ID')}` : '-', false, 14, AlignmentType.RIGHT),
+            tableCell(plan.success_indicator || '-', false, 15)
           ]
         })
       );
@@ -452,24 +460,32 @@ export async function generateAnnualReportDocx(data: AnnualReportFullData, penga
         new TableRow({
           children: [
             tableCell('No', true, 5, AlignmentType.CENTER),
-            tableCell('Rencana Tindakan / Kegiatan', true, 30),
-            tableCell('Masalah Terkait', true, 20),
-            tableCell('Target Waktu', true, 15, AlignmentType.CENTER),
-            tableCell('Kebutuhan Sumber Daya', true, 20),
-            tableCell('Indikator Keberhasilan', true, 10)
+            tableCell('Nama Kegiatan / Barang', true, 22),
+            tableCell('Masalah / Latar Belakang', true, 20),
+            tableCell('Vol', true, 6, AlignmentType.CENTER),
+            tableCell('Satuan', true, 10, AlignmentType.CENTER),
+            tableCell('Harga Satuan (Rp)', true, 13, AlignmentType.RIGHT),
+            tableCell('Jumlah (Rp)', true, 14, AlignmentType.RIGHT),
+            tableCell('Indikator Sukses', true, 15)
           ]
         })
       ];
       plans.forEach((pl, plIdx) => {
+        const vol = Number(pl.volume) > 0 ? Number(pl.volume) : 1;
+        const harga = Number(pl.harga_satuan) || 0;
+        const jml = (pl.total_biaya !== undefined && pl.total_biaya !== null && Number(pl.total_biaya) > 0) ? Number(pl.total_biaya) : vol * harga;
+
         pRows.push(
           new TableRow({
             children: [
               tableCell(String(plIdx + 1), false, 5, AlignmentType.CENTER),
-              tableCell(pl.action_plan),
-              tableCell(pl.problem || '-'),
-              tableCell(pl.target_completion || '-', false, 15, AlignmentType.CENTER),
-              tableCell(pl.resource_needs || '-'),
-              tableCell(pl.success_indicator || '-')
+              tableCell(pl.action_plan, false, 22),
+              tableCell(pl.problem || '-', false, 20),
+              tableCell(String(vol), false, 6, AlignmentType.CENTER),
+              tableCell(pl.satuan || 'Paket', false, 10, AlignmentType.CENTER),
+              tableCell(harga > 0 ? `Rp ${harga.toLocaleString('id-ID')}` : '-', false, 13, AlignmentType.RIGHT),
+              tableCell(jml > 0 ? `Rp ${jml.toLocaleString('id-ID')}` : '-', false, 14, AlignmentType.RIGHT),
+              tableCell(pl.success_indicator || '-', false, 15)
             ]
           })
         );

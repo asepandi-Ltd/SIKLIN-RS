@@ -180,16 +180,24 @@ export function generateAnnualReportPdf(data: AnnualReportFullData, pengaturan?:
   if (data.sectionPlans && data.sectionPlans.length > 0) {
     autoTable(doc, {
       startY: currentY,
-      head: [['No', 'Rencana Tindakan', 'Akar Masalah', 'Waktu', 'Prioritas']],
-      body: data.sectionPlans.map((sp, idx) => [
-        idx + 1,
-        sp.strategic_action || sp.section_plan_title,
-        sp.problem || '-',
-        sp.target_completion || '-',
-        sp.priority || 'Sedang'
-      ]),
-      headStyles: { fillColor: [13, 92, 117], fontSize: 8.5 },
-      bodyStyles: { fontSize: 8 },
+      head: [['No', 'Nama Kegiatan/Barang', 'Masalah/Latar Belakang', 'Vol', 'Satuan', 'Harga (Rp)', 'Jumlah (Rp)', 'Indikator Sukses']],
+      body: data.sectionPlans.map((sp, idx) => {
+        const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
+        const harga = Number(sp.harga_satuan) || 0;
+        const jml = (sp.total_biaya !== undefined && sp.total_biaya !== null && Number(sp.total_biaya) > 0) ? Number(sp.total_biaya) : vol * harga;
+        return [
+          idx + 1,
+          sp.strategic_action || sp.section_plan_title,
+          sp.problem || '-',
+          vol,
+          sp.satuan || 'Paket',
+          harga > 0 ? harga.toLocaleString('id-ID') : '-',
+          jml > 0 ? jml.toLocaleString('id-ID') : '-',
+          sp.success_indicator || '-'
+        ];
+      }),
+      headStyles: { fillColor: [150, 193, 65], textColor: [20, 20, 20], fontSize: 8 },
+      bodyStyles: { fontSize: 7.5 },
       margin: { left: 15, right: 15 },
       didDrawPage: () => addPageHeaderFooter()
     });
@@ -406,14 +414,23 @@ export function generateAnnualReportPdf(data: AnnualReportFullData, pengaturan?:
     if (plans.length > 0) {
       autoTable(doc, {
         startY: currentY,
-        head: [['No', 'Rencana Kegiatan', 'Target Waktu', 'Kebutuhan']],
-        body: plans.map((p, pIdx) => [
-          pIdx + 1,
-          p.action_plan,
-          p.target_completion || '-',
-          p.resource_needs || '-'
-        ]),
-        headStyles: { fillColor: [13, 92, 117], fontSize: 8 },
+        head: [['No', 'Nama Kegiatan/Barang', 'Masalah/Latar Belakang', 'Vol', 'Satuan', 'Harga (Rp)', 'Jumlah (Rp)', 'Indikator Sukses']],
+        body: plans.map((p, pIdx) => {
+          const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
+          const harga = Number(p.harga_satuan) || 0;
+          const jml = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0) ? Number(p.total_biaya) : vol * harga;
+          return [
+            pIdx + 1,
+            p.action_plan,
+            p.problem || '-',
+            vol,
+            p.satuan || 'Paket',
+            harga > 0 ? harga.toLocaleString('id-ID') : '-',
+            jml > 0 ? jml.toLocaleString('id-ID') : '-',
+            p.success_indicator || '-'
+          ];
+        }),
+        headStyles: { fillColor: [150, 193, 65], textColor: [20, 20, 20], fontSize: 8 },
         bodyStyles: { fontSize: 7.5 },
         margin: { left: 15, right: 15 },
         didDrawPage: () => addPageHeaderFooter()

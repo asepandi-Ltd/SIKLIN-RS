@@ -83,20 +83,26 @@ export function generateAnnualReportExcel(data: AnnualReportFullData) {
     ['RENCANA KERJA DAN TINDAK LANJUT SEKSI PENUNJANG'],
     [`UOBK RSUD AL-MULK KOTA SUKABUMI - PERIODE PERENCANAAN ${year + 1}`],
     [],
-    ['Level', 'Unit / Asal', 'Masalah Terkait', 'Rencana Tindakan / Strategis', 'Target Waktu', 'Kebutuhan Sumber Daya', 'Indikator Keberhasilan', 'Prioritas']
+    ['No', 'Level / Unit', 'Nama Kegiatan / Barang', 'Masalah / Latar Belakang', 'Volume', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)', 'Indikator Sukses']
   ];
+
+  let planIdx = 1;
 
   // Section plans
   (data.sectionPlans || []).forEach(sp => {
+    const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
+    const harga = Number(sp.harga_satuan) || 0;
+    const jml = (sp.total_biaya !== undefined && sp.total_biaya !== null && Number(sp.total_biaya) > 0) ? Number(sp.total_biaya) : vol * harga;
     planData.push([
+      planIdx++,
       'Seksi Penunjang',
-      'Lintas Unit',
-      sp.problem || '-',
       sp.strategic_action || sp.section_plan_title,
-      sp.target_completion || '-',
-      sp.resource_needs || '-',
-      sp.success_indicator || '-',
-      sp.priority || 'Sedang'
+      sp.problem || '-',
+      vol,
+      sp.satuan || 'Paket',
+      harga,
+      jml,
+      sp.success_indicator || '-'
     ]);
   });
 
@@ -104,15 +110,19 @@ export function generateAnnualReportExcel(data: AnnualReportFullData) {
   ACTIVE_MASTER_UNITS.forEach(u => {
     const list = data.unitPlans[u.id] || [];
     list.forEach(p => {
+      const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
+      const harga = Number(p.harga_satuan) || 0;
+      const jml = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0) ? Number(p.total_biaya) : vol * harga;
       planData.push([
-        'Unit Kerja',
-        u.name,
-        p.problem || '-',
+        planIdx++,
+        `Unit ${u.name}`,
         p.action_plan,
-        p.target_completion || '-',
-        p.resource_needs || '-',
-        p.success_indicator || '-',
-        p.priority || 'Sedang'
+        p.problem || '-',
+        vol,
+        p.satuan || 'Paket',
+        harga,
+        jml,
+        p.success_indicator || '-'
       ]);
     });
   });

@@ -326,6 +326,10 @@ export function getDefaultPlansForUnit(reportId: string, unitId: string): Annual
     resource_needs: needs,
     success_indicator: ind,
     priority: prio,
+    volume: 1,
+    satuan: 'Paket',
+    harga_satuan: 0,
+    total_biaya: 0,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   });

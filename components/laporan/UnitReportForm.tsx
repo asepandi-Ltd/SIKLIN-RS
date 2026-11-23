@@ -348,6 +348,10 @@ export default function UnitReportForm({
     e.preventDefault();
     if (!editingPlan?.action_plan) return;
 
+    const vol = Number(editingPlan.volume) > 0 ? Number(editingPlan.volume) : 1;
+    const harga = Number(editingPlan.harga_satuan) || 0;
+    const total = vol * harga;
+
     const planObj: AnnualUnitPlan = {
       id: editingPlan.id || `pln-${Date.now()}`,
       report_id: report.id,
@@ -355,10 +359,14 @@ export default function UnitReportForm({
       problem: editingPlan.problem || '',
       cause: editingPlan.cause || '',
       action_plan: editingPlan.action_plan,
-      target_completion: editingPlan.target_completion || '',
+      target_completion: editingPlan.target_completion || 'Sepanjang Tahun',
       resource_needs: editingPlan.resource_needs || '',
       success_indicator: editingPlan.success_indicator || '',
-      priority: (editingPlan.priority as any) || 'Sedang'
+      priority: (editingPlan.priority as any) || 'Sedang',
+      volume: vol,
+      satuan: editingPlan.satuan || 'Paket',
+      harga_satuan: harga,
+      total_biaya: total
     };
 
     const ok = await upsertUnitPlan(planObj);
@@ -1149,20 +1157,22 @@ export default function UnitReportForm({
                   <CalendarCheck size={18} className="text-teal-600" /> Rencana Kerja Unit ({report.report_year + 1})
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Rencana kerja tindak lanjut untuk periode perencanaan berikutnya. Akan dikonsolidasi otomatis ke tingkat seksi.
+                  Rencana kerja tindak lanjut & usulan kebutuhan barang/kegiatan tahun {report.report_year + 1}.
                 </p>
               </div>
               {!readOnly && (
                 <button
                   onClick={() => {
                     setEditingPlan({
-                      problem: '',
-                      cause: '',
                       action_plan: '',
-                      target_completion: 'Triwulan I',
-                      resource_needs: '',
+                      problem: '',
+                      volume: 1,
+                      satuan: 'Paket',
+                      harga_satuan: 0,
+                      total_biaya: 0,
                       success_indicator: '',
-                      priority: 'Sedang'
+                      priority: 'Sedang',
+                      target_completion: 'Sepanjang Tahun'
                     });
                     setIsPlanModalOpen(true);
                   }}
@@ -1173,72 +1183,101 @@ export default function UnitReportForm({
               )}
             </div>
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden overflow-x-auto shadow-sm">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+            <div className="border border-slate-300 rounded-xl overflow-hidden overflow-x-auto shadow-sm">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-[#96c141] text-slate-950 font-bold border-b border-slate-400">
                   <tr>
-                    <th className="p-3 w-10 text-center">No</th>
-                    <th className="p-3">Rencana Tindakan</th>
-                    <th className="p-3">Masalah / Latar Belakang</th>
-                    <th className="p-3 text-center">Target Waktu</th>
-                    <th className="p-3">Kebutuhan Sumber Daya</th>
-                    <th className="p-3">Indikator Sukses</th>
-                    <th className="p-3 text-center">Prioritas</th>
-                    {!readOnly && <th className="p-3 text-center w-20">Aksi</th>}
+                    <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center w-10">No</th>
+                    <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[200px]">Nama Kegiatan/Barang</th>
+                    <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[180px]">Masalah/Latar Belakang</th>
+                    <th colSpan={4} className="border border-slate-500/50 p-2 text-center bg-[#8cb73b]">Rincian Perhitungan</th>
+                    <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[180px]">Indikator Sukses</th>
+                    {!readOnly && <th rowSpan={2} className="border border-slate-500/50 p-2 text-center w-20">Aksi</th>}
+                  </tr>
+                  <tr>
+                    <th className="border border-slate-500/50 p-2 text-center w-16 bg-[#96c141]">Volume</th>
+                    <th className="border border-slate-500/50 p-2 text-center w-20 bg-[#96c141]">Satuan</th>
+                    <th className="border border-slate-500/50 p-2 text-right w-32 bg-[#96c141]">Harga Satuan (Rp)</th>
+                    <th className="border border-slate-500/50 p-2 text-right w-36 bg-[#96c141]">Jumlah (Rp)</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 bg-white">
+                <tbody className="divide-y divide-slate-200 bg-white">
                   {plans.length > 0 ? (
-                    plans.map((p, idx) => (
-                      <tr key={p.id} className="hover:bg-slate-50">
-                        <td className="p-3 text-center text-slate-500">{idx + 1}</td>
-                        <td className="p-3 font-bold text-slate-800">{p.action_plan}</td>
-                        <td className="p-3 text-slate-600">{p.problem || '-'}</td>
-                        <td className="p-3 text-center font-semibold text-slate-700">
-                          {p.target_completion || '-'}
-                        </td>
-                        <td className="p-3 text-slate-600">{p.resource_needs || '-'}</td>
-                        <td className="p-3 text-slate-600">{p.success_indicator || '-'}</td>
-                        <td className="p-3 text-center">
-                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                            p.priority === 'Tinggi'
-                              ? 'bg-rose-100 text-rose-700'
-                              : 'bg-teal-100 text-teal-700'
-                          }`}>
-                            {p.priority}
-                          </span>
-                        </td>
-                        {!readOnly && (
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button
-                                onClick={() => {
-                                  setEditingPlan(p);
-                                  setIsPlanModalOpen(true);
-                                }}
-                                className="p-1 text-slate-500 hover:text-teal-600"
-                              >
-                                <Edit2 size={13} />
-                              </button>
-                              <button
-                                onClick={() => handleDeletePlan(p.id)}
-                                className="p-1 text-slate-500 hover:text-rose-600"
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
+                    plans.map((p, idx) => {
+                      const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
+                      const harga = Number(p.harga_satuan) || 0;
+                      const jumlah = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0)
+                        ? Number(p.total_biaya)
+                        : vol * harga;
+
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50 border-b border-slate-200">
+                          <td className="p-2.5 text-center border-r border-slate-200 text-slate-600 font-semibold">{idx + 1}</td>
+                          <td className="p-2.5 font-bold text-slate-900 border-r border-slate-200">{p.action_plan}</td>
+                          <td className="p-2.5 text-slate-700 border-r border-slate-200">{p.problem || '-'}</td>
+                          <td className="p-2 text-center font-bold text-slate-800 border-r border-slate-200">{vol}</td>
+                          <td className="p-2 text-center text-slate-700 border-r border-slate-200">{p.satuan || 'Paket'}</td>
+                          <td className="p-2 text-right font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
+                            {harga > 0 ? `Rp ${harga.toLocaleString('id-ID')}` : '-'}
                           </td>
-                        )}
-                      </tr>
-                    ))
+                          <td className="p-2 text-right font-bold text-emerald-800 border-r border-slate-200 whitespace-nowrap">
+                            {jumlah > 0 ? `Rp ${jumlah.toLocaleString('id-ID')}` : '-'}
+                          </td>
+                          <td className="p-2.5 text-slate-700 border-r border-slate-200">{p.success_indicator || '-'}</td>
+                          {!readOnly && (
+                            <td className="p-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <button
+                                  onClick={() => {
+                                    setEditingPlan(p);
+                                    setIsPlanModalOpen(true);
+                                  }}
+                                  className="p-1 text-slate-500 hover:text-teal-600"
+                                  title="Edit Rencana"
+                                >
+                                  <Edit2 size={13} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeletePlan(p.id)}
+                                  className="p-1 text-slate-500 hover:text-rose-600"
+                                  title="Hapus Rencana"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={readOnly ? 7 : 8} className="p-6 text-center text-slate-400">
+                      <td colSpan={readOnly ? 8 : 9} className="p-6 text-center text-slate-400">
                         Belum ada rencana kerja yang ditambahkan.
                       </td>
                     </tr>
                   )}
                 </tbody>
+                {plans.length > 0 && (
+                  <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                    <tr>
+                      <td colSpan={6} className="p-2.5 text-right font-black text-slate-800 uppercase">
+                        Total Estimasi Anggaran:
+                      </td>
+                      <td className="p-2.5 text-right font-black text-emerald-900 whitespace-nowrap text-xs">
+                        Rp {plans.reduce((acc, p) => {
+                          const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
+                          const harga = Number(p.harga_satuan) || 0;
+                          const j = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0)
+                            ? Number(p.total_biaya)
+                            : vol * harga;
+                          return acc + j;
+                        }, 0).toLocaleString('id-ID')}
+                      </td>
+                      <td colSpan={readOnly ? 1 : 2}></td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>
@@ -1637,83 +1676,119 @@ export default function UnitReportForm({
       {/* 4. Plan Modal */}
       {isPlanModalOpen && editingPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 print:hidden">
-          <form onSubmit={handleSavePlan} className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <h4 className="font-extrabold text-slate-800 text-sm border-b pb-2">
-              {editingPlan.id ? 'Edit Rencana Kerja' : 'Tambah Rencana Kerja'}
-            </h4>
-            <div className="space-y-3 text-xs">
+          <form onSubmit={handleSavePlan} className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="border-b pb-2 flex items-center justify-between">
+              <h4 className="font-extrabold text-slate-800 text-sm">
+                {editingPlan.id ? 'Edit Rencana Kerja / Usulan Barang' : 'Tambah Rencana Kerja / Usulan Barang'}
+              </h4>
+              <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                Format Rincian Perhitungan
+              </span>
+            </div>
+            <div className="space-y-3.5 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Rencana Tindakan / Kegiatan</label>
-                <textarea
-                  rows={2}
+                <label className="block font-bold text-slate-700 mb-1">
+                  Nama Kegiatan / Barang <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
                   required
                   value={editingPlan.action_plan || ''}
                   onChange={e => setEditingPlan({ ...editingPlan, action_plan: e.target.value })}
-                  placeholder="Rencana kegiatan spesifik yang akan dilaksanakan..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium"
+                  placeholder="Contoh: Pengadaan Kalibrator Alat Medis, Pelatihan Internal, dll."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:bg-white outline-none focus:ring-1 focus:ring-teal-500"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Masalah / Latar Belakang</label>
-                  <input
-                    type="text"
-                    value={editingPlan.problem || ''}
-                    onChange={e => setEditingPlan({ ...editingPlan, problem: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Target Waktu Penyelesaian</label>
-                  <input
-                    type="text"
-                    value={editingPlan.target_completion || ''}
-                    onChange={e => setEditingPlan({ ...editingPlan, target_completion: e.target.value })}
-                    placeholder="Contoh: Triwulan I, Semester II..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Kebutuhan Sumber Daya</label>
-                  <input
-                    type="text"
-                    value={editingPlan.resource_needs || ''}
-                    onChange={e => setEditingPlan({ ...editingPlan, resource_needs: e.target.value })}
-                    placeholder="Anggaran, alat, SDM..."
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Prioritas</label>
-                  <select
-                    value={editingPlan.priority || 'Sedang'}
-                    onChange={e => setEditingPlan({ ...editingPlan, priority: e.target.value as any })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium"
-                  >
-                    <option value="Tinggi">Tinggi</option>
-                    <option value="Sedang">Sedang</option>
-                    <option value="Rendah">Rendah</option>
-                  </select>
-                </div>
-              </div>
+
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Indikator Keberhasilan</label>
-                <input
-                  type="text"
+                <label className="block font-bold text-slate-700 mb-1">
+                  Masalah / Latar Belakang
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingPlan.problem || ''}
+                  onChange={e => setEditingPlan({ ...editingPlan, problem: e.target.value })}
+                  placeholder="Latar belakang urgensi atau permasalahan yang mendasari usulan..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:bg-white outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              {/* Rincian Perhitungan Section */}
+              <div className="bg-[#f7faef] border border-[#96c141]/50 rounded-xl p-3.5 space-y-3">
+                <span className="block text-[11px] font-black uppercase text-slate-800 tracking-wider">
+                  Rincian Perhitungan (Volume, Satuan & Harga)
+                </span>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Volume</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={editingPlan.volume !== undefined ? editingPlan.volume : 1}
+                      onChange={e => {
+                        const val = Math.max(1, Number(e.target.value) || 1);
+                        const hrg = Number(editingPlan.harga_satuan) || 0;
+                        setEditingPlan({ ...editingPlan, volume: val, total_biaya: val * hrg });
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-center"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">Satuan</label>
+                    <input
+                      type="text"
+                      value={editingPlan.satuan || 'Paket'}
+                      onChange={e => setEditingPlan({ ...editingPlan, satuan: e.target.value })}
+                      placeholder="Paket / Unit / Set / Bulan / Orang..."
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-medium"
+                    />
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-1">
+                    <label className="block font-bold text-slate-700 mb-1">Harga Satuan (Rp)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      value={editingPlan.harga_satuan !== undefined ? editingPlan.harga_satuan : 0}
+                      onChange={e => {
+                        const hrg = Number(e.target.value) || 0;
+                        const vol = Number(editingPlan.volume) > 0 ? Number(editingPlan.volume) : 1;
+                        setEditingPlan({ ...editingPlan, harga_satuan: hrg, total_biaya: vol * hrg });
+                      }}
+                      className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-right"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg p-2.5 border border-[#96c141]/60 flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700">Jumlah Total (Rp):</span>
+                  <span className="text-sm font-black text-emerald-800">
+                    Rp {(((Number(editingPlan.volume) > 0 ? Number(editingPlan.volume) : 1) * (Number(editingPlan.harga_satuan) || 0))).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Indikator Sukses</label>
+                <textarea
+                  rows={2}
                   value={editingPlan.success_indicator || ''}
                   onChange={e => setEditingPlan({ ...editingPlan, success_indicator: e.target.value })}
-                  placeholder="Ukuran atau bukti ketercapaian kegiatan..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium"
+                  placeholder="Target ketercapaian, contoh: 100% alat laik pakai, efisiensi waktu 30%..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-medium focus:bg-white outline-none focus:ring-1 focus:ring-teal-500"
                 />
               </div>
             </div>
+
             <div className="flex items-center justify-end gap-2 pt-3 border-t">
               <button
                 type="button"
                 onClick={() => setIsPlanModalOpen(false)}
-                className="px-3.5 py-1.5 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold"
+                className="px-3.5 py-1.5 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold hover:bg-slate-50"
               >
                 Batal
               </button>
@@ -2115,43 +2190,80 @@ function UnitPrintableDocument({
       {/* BAB VI: RENCANA KERJA DAN TINDAK LANJUT TAHUN {report.report_year + 1} */}
       <div className="space-y-3 pt-4 border-t border-slate-200 break-inside-avoid">
         <h2 className="text-sm sm:text-base font-extrabold text-teal-900 print:text-black border-b border-slate-300 pb-1 uppercase">
-          BAB VI. RENCANA KERJA DAN TINDAK LANJUT TAHUN {report.report_year + 1}
+          BAB VI. RENCANA KERJA DAN USULAN KEBUTUHAN BARANG/KEGIATAN TAHUN {report.report_year + 1}
         </h2>
         <div className="space-y-3 text-xs leading-relaxed text-slate-700 print:text-black">
-          <div className="border border-slate-200 rounded-lg overflow-x-auto">
-            <table className="w-full text-left text-[11px]">
-              <thead className="bg-slate-100 font-bold border-b border-slate-200 text-slate-800">
+          <div className="border border-slate-300 rounded-lg overflow-x-auto">
+            <table className="w-full text-left text-[11px] border-collapse">
+              <thead className="bg-[#96c141] text-slate-950 font-bold border-b border-slate-400">
                 <tr>
-                  <th className="p-2 w-8 text-center">No</th>
-                  <th className="p-2">Rencana Tindakan / Kegiatan</th>
-                  <th className="p-2">Masalah Terkait</th>
-                  <th className="p-2 text-center">Target Waktu</th>
-                  <th className="p-2">Kebutuhan Sumber Daya</th>
-                  <th className="p-2">Indikator Sukses</th>
-                  <th className="p-2 text-center">Prioritas</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2 text-center w-8">No</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2">Nama Kegiatan/Barang</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2">Masalah/Latar Belakang</th>
+                  <th colSpan={4} className="border border-slate-500/50 p-1.5 text-center bg-[#8cb73b]">Rincian Perhitungan</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2">Indikator Sukses</th>
+                </tr>
+                <tr>
+                  <th className="border border-slate-500/50 p-1.5 text-center w-14 bg-[#96c141]">Volume</th>
+                  <th className="border border-slate-500/50 p-1.5 text-center w-16 bg-[#96c141]">Satuan</th>
+                  <th className="border border-slate-500/50 p-1.5 text-right w-24 bg-[#96c141]">Harga Satuan (Rp)</th>
+                  <th className="border border-slate-500/50 p-1.5 text-right w-28 bg-[#96c141]">Jumlah (Rp)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200">
                 {plans.length > 0 ? (
-                  plans.map((p, idx) => (
-                    <tr key={p.id}>
-                      <td className="p-2 text-center">{idx + 1}</td>
-                      <td className="p-2 font-bold text-slate-900">{p.action_plan}</td>
-                      <td className="p-2">{p.problem || '-'}</td>
-                      <td className="p-2 text-center font-semibold">{p.target_completion || '-'}</td>
-                      <td className="p-2">{p.resource_needs || '-'}</td>
-                      <td className="p-2">{p.success_indicator || '-'}</td>
-                      <td className="p-2 text-center font-bold">{p.priority}</td>
-                    </tr>
-                  ))
+                  plans.map((p, idx) => {
+                    const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
+                    const harga = Number(p.harga_satuan) || 0;
+                    const jumlah = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0)
+                      ? Number(p.total_biaya)
+                      : vol * harga;
+
+                    return (
+                      <tr key={p.id}>
+                        <td className="p-2 text-center border-r border-slate-200 text-slate-600">{idx + 1}</td>
+                        <td className="p-2 font-bold text-slate-900 border-r border-slate-200">{p.action_plan}</td>
+                        <td className="p-2 border-r border-slate-200">{p.problem || '-'}</td>
+                        <td className="p-2 text-center font-bold border-r border-slate-200">{vol}</td>
+                        <td className="p-2 text-center border-r border-slate-200">{p.satuan || 'Paket'}</td>
+                        <td className="p-2 text-right border-r border-slate-200 whitespace-nowrap">
+                          {harga > 0 ? `Rp ${harga.toLocaleString('id-ID')}` : '-'}
+                        </td>
+                        <td className="p-2 text-right font-bold text-slate-900 border-r border-slate-200 whitespace-nowrap">
+                          {jumlah > 0 ? `Rp ${jumlah.toLocaleString('id-ID')}` : '-'}
+                        </td>
+                        <td className="p-2">{p.success_indicator || '-'}</td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
-                    <td colSpan={7} className="p-3 text-center text-slate-400">
+                    <td colSpan={8} className="p-3 text-center text-slate-400">
                       Rencana kerja tindak lanjut terintegrasi dengan RKA tahun {report.report_year + 1}.
                     </td>
                   </tr>
                 )}
               </tbody>
+              {plans.length > 0 && (
+                <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-300">
+                  <tr>
+                    <td colSpan={6} className="p-2 text-right font-black text-slate-900 uppercase">
+                      Total Estimasi Anggaran:
+                    </td>
+                    <td className="p-2 text-right font-black text-slate-900 whitespace-nowrap">
+                      Rp {plans.reduce((acc, p) => {
+                        const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
+                        const harga = Number(p.harga_satuan) || 0;
+                        const j = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0)
+                          ? Number(p.total_biaya)
+                          : vol * harga;
+                        return acc + j;
+                      }, 0).toLocaleString('id-ID')}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>
