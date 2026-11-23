@@ -3,8 +3,9 @@
 -- SQL MIGRATION: MODUL PENYUSUNAN LAPORAN TAHUNAN SEKSI PENUNJANG
 -- ==============================================================================
 -- Petunjuk:
--- Salin dan jalankan script SQL ini pada Supabase SQL Editor.
--- Migrasi ini bersifat non-destruktif dan TIDAK merusak tabel existing.
+-- Salin seluruh script ini dan jalankan pada Supabase SQL Editor.
+-- Catatan: Pastikan tidak ada blok teks yang sedang ter-highlight (terseleksi sebagian)
+-- saat menekan tombol "Run".
 -- ==============================================================================
 
 -- 1. Tabel Identitas Laporan Tahunan
@@ -23,7 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_annual_reports_year ON public.annual_reports(repo
 -- 2. Tabel Gambaran Umum dan Analisis Situasi Seksi (BAB I, BAB II, BAB V)
 CREATE TABLE IF NOT EXISTS public.annual_section_profile (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   background TEXT,
   objectives TEXT,
   section_overview TEXT,
@@ -42,8 +43,7 @@ CREATE TABLE IF NOT EXISTS public.annual_section_profile (
   pejabat_nip VARCHAR(255),
   pejabat_jabatan VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT uq_section_profile_report UNIQUE (report_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_section_profile_report ON public.annual_section_profile(report_id);
@@ -51,7 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_section_profile_report ON public.annual_section_p
 -- 3. Tabel Profil Unit per Tahun (BAB III A)
 CREATE TABLE IF NOT EXISTS public.annual_unit_profiles (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   unit_id VARCHAR(255) NOT NULL,
   unit_name VARCHAR(255) NOT NULL,
   unit_overview TEXT,
@@ -63,8 +63,7 @@ CREATE TABLE IF NOT EXISTS public.annual_unit_profiles (
   facilities TEXT,
   other_information TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT uq_unit_profile UNIQUE (report_id, unit_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_unit_profiles_report_unit ON public.annual_unit_profiles(report_id, unit_id);
@@ -72,7 +71,7 @@ CREATE INDEX IF NOT EXISTS idx_unit_profiles_report_unit ON public.annual_unit_p
 -- 4. Tabel Komposisi SDM Unit (BAB III B)
 CREATE TABLE IF NOT EXISTS public.annual_unit_staffing (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   unit_id VARCHAR(255) NOT NULL,
   employee_identifier VARCHAR(255),
   employee_name VARCHAR(255) NOT NULL,
@@ -91,7 +90,7 @@ CREATE INDEX IF NOT EXISTS idx_unit_staffing_report_unit ON public.annual_unit_s
 -- 5. Tabel Pembagian Tugas dan Kewenangan Staf (BAB III B lanjutan)
 CREATE TABLE IF NOT EXISTS public.annual_unit_authorities (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   unit_id VARCHAR(255) NOT NULL,
   employee_identifier VARCHAR(255),
   employee_name VARCHAR(255) NOT NULL,
@@ -108,7 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_unit_auth_report_unit ON public.annual_unit_autho
 -- 6. Tabel Dynamic Table Builder Program & Kegiatan Unit (BAB III C)
 CREATE TABLE IF NOT EXISTS public.annual_unit_program_tables (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   unit_id VARCHAR(255) NOT NULL,
   table_title VARCHAR(255) NOT NULL,
   columns_definition JSONB NOT NULL DEFAULT '[]'::jsonb,
@@ -123,7 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_unit_prog_tables_report_unit ON public.annual_uni
 -- 7. Tabel Hambatan dan Permasalahan Unit (BAB III E)
 CREATE TABLE IF NOT EXISTS public.annual_unit_obstacles (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   unit_id VARCHAR(255) NOT NULL,
   problem_title TEXT NOT NULL,
   description TEXT,
@@ -141,7 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_unit_obstacles_report_unit ON public.annual_unit_
 -- 8. Tabel Rencana Kerja Unit (BAB III F)
 CREATE TABLE IF NOT EXISTS public.annual_unit_plans (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   unit_id VARCHAR(255) NOT NULL,
   problem_reference VARCHAR(255),
   problem TEXT NOT NULL,
@@ -173,7 +172,7 @@ CREATE INDEX IF NOT EXISTS idx_unit_plans_report_unit ON public.annual_unit_plan
 -- 9. Tabel Rencana Kerja Seksi / Konsolidasi (BAB II 2.6)
 CREATE TABLE IF NOT EXISTS public.annual_section_plans (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   section_plan_title TEXT NOT NULL,
   source_unit_ids JSONB DEFAULT '[]'::jsonb,
   problem TEXT,
@@ -204,63 +203,136 @@ CREATE INDEX IF NOT EXISTS idx_section_plans_report ON public.annual_section_pla
 -- 10. Tabel Snapshot Data Final Laporan Tahunan (Frozen snapshot untuk Word/PDF)
 CREATE TABLE IF NOT EXISTS public.annual_report_snapshots (
   id VARCHAR(255) PRIMARY KEY,
-  report_id VARCHAR(255) REFERENCES public.annual_reports(id) ON DELETE CASCADE,
+  report_id VARCHAR(255) NOT NULL,
   snapshot_json JSONB NOT NULL,
   report_title TEXT NOT NULL,
   updated_by VARCHAR(255),
   revision_number INTEGER DEFAULT 1,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT uq_report_snapshot UNIQUE (report_id)
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_report_snapshots_report ON public.annual_report_snapshots(report_id);
 
 -- ==============================================================================
--- Keamanan & RLS (Row Level Security)
+-- Keamanan & RLS (Row Level Security) - Aman dari error 42P01
 -- ==============================================================================
--- Sejalan dengan konfigurasi default SIKLIN/SIPAKAR yang menggunakan anon key,
--- RLS dinonaktifkan secara eksplisit pada tabel baru agar operasi client-side aman.
--- Jika ingin mengaktifkan RLS penuh, lihat blok alternatif di bawah.
-
-ALTER TABLE public.annual_reports DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_section_profile DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_unit_profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_unit_staffing DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_unit_authorities DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_unit_program_tables DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_unit_obstacles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_unit_plans DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_section_plans DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.annual_report_snapshots DISABLE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_reports') THEN
+    ALTER TABLE public.annual_reports DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_section_profile') THEN
+    ALTER TABLE public.annual_section_profile DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_profiles') THEN
+    ALTER TABLE public.annual_unit_profiles DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_staffing') THEN
+    ALTER TABLE public.annual_unit_staffing DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_authorities') THEN
+    ALTER TABLE public.annual_unit_authorities DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_program_tables') THEN
+    ALTER TABLE public.annual_unit_program_tables DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_obstacles') THEN
+    ALTER TABLE public.annual_unit_obstacles DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_plans') THEN
+    ALTER TABLE public.annual_unit_plans DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_section_plans') THEN
+    ALTER TABLE public.annual_section_plans DISABLE ROW LEVEL SECURITY;
+  END IF;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_report_snapshots') THEN
+    ALTER TABLE public.annual_report_snapshots DISABLE ROW LEVEL SECURITY;
+  END IF;
+END $$;
 
 -- ==============================================================================
 -- Realtime Replication
 -- ==============================================================================
 DO $$
 BEGIN
-  ALTER TABLE public.annual_reports REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_section_profile REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_unit_profiles REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_unit_staffing REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_unit_authorities REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_unit_program_tables REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_unit_obstacles REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_unit_plans REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_section_plans REPLICA IDENTITY FULL;
-  ALTER TABLE public.annual_report_snapshots REPLICA IDENTITY FULL;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_reports') THEN
+    ALTER TABLE public.annual_reports REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_reports;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
 
-  BEGIN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_reports;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_section_profile;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_profiles;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_staffing;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_authorities;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_program_tables;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_obstacles;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_plans;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_section_plans;
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_report_snapshots;
-  EXCEPTION WHEN OTHERS THEN NULL;
-  END;
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_section_profile') THEN
+    ALTER TABLE public.annual_section_profile REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_section_profile;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_profiles') THEN
+    ALTER TABLE public.annual_unit_profiles REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_profiles;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_staffing') THEN
+    ALTER TABLE public.annual_unit_staffing REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_staffing;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_authorities') THEN
+    ALTER TABLE public.annual_unit_authorities REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_authorities;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_program_tables') THEN
+    ALTER TABLE public.annual_unit_program_tables REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_program_tables;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_obstacles') THEN
+    ALTER TABLE public.annual_unit_obstacles REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_obstacles;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_unit_plans') THEN
+    ALTER TABLE public.annual_unit_plans REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_unit_plans;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_section_plans') THEN
+    ALTER TABLE public.annual_section_plans REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_section_plans;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
+
+  IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'annual_report_snapshots') THEN
+    ALTER TABLE public.annual_report_snapshots REPLICA IDENTITY FULL;
+    BEGIN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.annual_report_snapshots;
+    EXCEPTION WHEN OTHERS THEN NULL;
+    END;
+  END IF;
 END $$;
