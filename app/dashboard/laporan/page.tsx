@@ -5,8 +5,9 @@ import { useAppStore } from "@/lib/store";
 import { ACTIVE_MASTER_UNITS, normalizeUnit, MasterUnit } from "@/lib/units";
 import SectionReportDashboard from "@/components/laporan/SectionReportDashboard";
 import UnitReportForm from "@/components/laporan/UnitReportForm";
-import { getOrCreateAnnualReport, checkAnnualTablesExist } from "@/lib/annualReportService";
+import { getOrCreateAnnualReport, checkAnnualTablesExist, pullAllCloudDataToLocal } from "@/lib/annualReportService";
 import { AnnualReport } from "@/lib/annualReportTypes";
+import Swal from "sweetalert2";
 import {
   FileText,
   Calendar,
@@ -17,7 +18,8 @@ import {
   Eye,
   AlertTriangle,
   Cloud,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from "lucide-react";
 
 export default function LaporanPage() {
@@ -26,6 +28,7 @@ export default function LaporanPage() {
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [annualReport, setAnnualReport] = useState<AnnualReport | null>(null);
   const [isCloudActive, setIsCloudActive] = useState<boolean | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // For Kepala Unit or previewing as a specific unit
   const [unitMode, setUnitMode] = useState<MasterUnit | null>(null);
@@ -34,6 +37,29 @@ export default function LaporanPage() {
     setMounted(true);
     checkAnnualTablesExist().then(active => setIsCloudActive(active));
   }, []);
+
+  const handleSyncCloud = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await pullAllCloudDataToLocal();
+      if (res.success) {
+        const rep = await getOrCreateAnnualReport(selectedYear, currentUser?.nama || 'Kepala Seksi');
+        setAnnualReport(rep);
+        Swal.fire({
+          icon: 'success',
+          title: 'Data Berhasil Disinkronkan',
+          text: `Berhasil menarik ${res.pulledCount} data terbaru dari Supabase Cloud!`,
+          timer: 1800,
+          showConfirmButton: false
+        });
+      }
+    } catch (e: any) {
+      console.error(e);
+      Swal.fire('Gagal Sinkronisasi', e?.message || 'Gagal menghubungi server', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   // Determine user unit
   useEffect(() => {
@@ -99,42 +125,54 @@ export default function LaporanPage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500">Tampilan Saat Ini:</span>
-            <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
-              <button
-                onClick={() => setUnitMode(null)}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                  !unitMode ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Konsolidasi Seksi
-              </button>
-              <button
-                onClick={() => setUnitMode(ACTIVE_MASTER_UNITS[0])}
-                className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
-                  unitMode ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Pratinjau Pengisian Unit
-              </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleSyncCloud}
+              disabled={isSyncing}
+              title="Tarik data terbaru yang diinputkan dari perangkat lain ke peramban ini"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-100 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw size={13} className={isSyncing ? "animate-spin text-teal-600" : "text-teal-600"} />
+              <span>{isSyncing ? "Menyinkronkan..." : "Tarik Data Cloud"}</span>
+            </button>
+
+            <div className="flex items-center gap-2 border-l border-slate-300 pl-3">
+              <span className="text-slate-500">Tampilan Saat Ini:</span>
+              <div className="inline-flex rounded-lg border border-slate-300 bg-white p-0.5">
+                <button
+                  onClick={() => setUnitMode(null)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                    !unitMode ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Konsolidasi Seksi
+                </button>
+                <button
+                  onClick={() => setUnitMode(ACTIVE_MASTER_UNITS[0])}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all ${
+                    unitMode ? 'bg-teal-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Pratinjau Pengisian Unit
+                </button>
+              </div>
+              {unitMode && (
+                <select
+                  value={unitMode.id}
+                  onChange={e => {
+                    const u = ACTIVE_MASTER_UNITS.find(item => item.id === e.target.value);
+                    if (u) setUnitMode(u);
+                  }}
+                  className="bg-white border border-slate-300 font-bold text-xs text-slate-800 rounded-lg px-2.5 py-1 outline-none"
+                >
+                  {ACTIVE_MASTER_UNITS.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
-            {unitMode && (
-              <select
-                value={unitMode.id}
-                onChange={e => {
-                  const u = ACTIVE_MASTER_UNITS.find(item => item.id === e.target.value);
-                  if (u) setUnitMode(u);
-                }}
-                className="bg-white border border-slate-300 font-bold text-xs text-slate-800 rounded-lg px-2.5 py-1 outline-none"
-              >
-                {ACTIVE_MASTER_UNITS.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            )}
           </div>
         </div>
       )}
@@ -159,9 +197,21 @@ export default function LaporanPage() {
                 ))}
               </select>
             </div>
-            <span className="text-xs text-slate-500 font-semibold">
-              Formulir Pengisian Laporan Unit
-            </span>
+            
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSyncCloud}
+                disabled={isSyncing}
+                title="Tarik data terbaru yang diinputkan dari perangkat lain ke peramban ini"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-100 text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={isSyncing ? "animate-spin text-teal-600" : "text-teal-600"} />
+                <span>{isSyncing ? "Menyinkronkan..." : "Tarik Data Cloud"}</span>
+              </button>
+              <span className="text-xs text-slate-500 font-semibold hidden sm:inline">
+                Formulir Pengisian Laporan Unit
+              </span>
+            </div>
           </div>
 
           <UnitReportForm

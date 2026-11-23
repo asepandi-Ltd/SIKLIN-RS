@@ -19,7 +19,8 @@ import {
   deleteSectionPlan,
   consolidateAnnualReportData,
   getReportSnapshot,
-  upsertReportSnapshot
+  upsertReportSnapshot,
+  pullAllCloudDataToLocal
 } from '@/lib/annualReportService';
 import { generateAnnualReportDocx } from '@/lib/annualReportDocxGenerator';
 import { generateAnnualReportPdf } from '@/lib/annualReportPdfGenerator';
@@ -97,6 +98,8 @@ export default function SectionReportDashboard({
   // Filter in Tab 4 (KPI)
   const [kpiFilterUnit, setKpiFilterUnit] = useState<string>('Semua Unit');
   const [kpiFilterStatus, setKpiFilterStatus] = useState<string>('Semua Status');
+
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Load Year Data
   const loadYearData = useCallback(async (year: number) => {
@@ -213,6 +216,31 @@ export default function SectionReportDashboard({
         setSectionPlans(sectionPlans.filter(p => p.id !== id));
       }
     });
+  };
+
+  // Cloud Sync Handler
+  const handleCloudSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await pullAllCloudDataToLocal();
+      if (res.success) {
+        await loadYearData(selectedYear);
+        Swal.fire({
+          icon: 'success',
+          title: 'Data Berhasil Disinkronkan',
+          text: `Berhasil menarik ${res.pulledCount} data terbaru dari Supabase Cloud!`,
+          timer: 1800,
+          showConfirmButton: false
+        });
+      } else {
+        throw new Error(res.error);
+      }
+    } catch (err: any) {
+      console.error(err);
+      Swal.fire('Gagal Sinkronisasi', err?.message || 'Gagal menghubungi server', 'error');
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   // Finalize / Snapshot Handlers (Modul 12)
@@ -430,6 +458,16 @@ export default function SectionReportDashboard({
                 </div>
               </div>
             )}
+
+            <button
+              onClick={handleCloudSync}
+              disabled={isSyncing}
+              title="Tarik pembaruan data yang diinput oleh unit lain dari database Supabase Cloud"
+              className="bg-white/10 hover:bg-white/20 active:scale-95 backdrop-blur-md rounded-xl px-3.5 py-2.5 border border-white/25 flex items-center gap-2 text-xs font-bold text-white transition-all cursor-pointer disabled:opacity-50 shadow-sm"
+            >
+              <RefreshCw size={14} className={isSyncing ? "animate-spin text-teal-300" : "text-teal-300"} />
+              <span>{isSyncing ? "Menyinkronkan..." : "Tarik Data Cloud"}</span>
+            </button>
           </div>
         </div>
       </div>

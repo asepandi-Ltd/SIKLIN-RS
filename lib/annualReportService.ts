@@ -41,9 +41,9 @@ const setStored = <T>(key: string, val: T): void => {
 // Reachability flag for annual report tables in Supabase
 let hasAnnualTablesInDb: boolean | null = null;
 
-export async function checkAnnualTablesExist(): Promise<boolean> {
-  if (hasAnnualTablesInDb !== null) return hasAnnualTablesInDb;
-  if (!isSupabaseConfigured() || !isSupabaseReachableCached()) {
+export async function checkAnnualTablesExist(force = false): Promise<boolean> {
+  if (!force && hasAnnualTablesInDb === true) return true;
+  if (!isSupabaseConfigured()) {
     hasAnnualTablesInDb = false;
     return false;
   }
@@ -871,4 +871,159 @@ export async function consolidateAnnualReportData(
     },
     generated_at: new Date().toISOString()
   };
+}
+
+// ==========================================
+// 10. Supabase Synchronization & Diagnostics
+// ==========================================
+export interface SupabaseSyncReport {
+  connected: boolean;
+  timestamp: string;
+  tables: Record<string, { exists: boolean; count: number; error?: string }>;
+  latencyMs: number;
+}
+
+export async function getSupabaseSyncDiagnostics(): Promise<SupabaseSyncReport> {
+  const start = Date.now();
+  const tables = [
+    'annual_reports',
+    'annual_section_profile',
+    'annual_unit_profiles',
+    'annual_unit_staffing',
+    'annual_unit_authorities',
+    'annual_unit_program_tables',
+    'annual_unit_obstacles',
+    'annual_unit_plans',
+    'annual_section_plans',
+    'annual_report_snapshots',
+    'indikator',
+    'capaian_indikator',
+    'users',
+    'supervisi',
+    'pengaturan'
+  ];
+
+  const rep: SupabaseSyncReport = {
+    connected: false,
+    timestamp: new Date().toISOString(),
+    tables: {},
+    latencyMs: 0
+  };
+
+  if (!isSupabaseConfigured()) {
+    return rep;
+  }
+
+  try {
+    for (const t of tables) {
+      try {
+        const { count, error } = await supabase.from(t).select('*', { count: 'exact', head: true });
+        if (error) {
+          rep.tables[t] = { exists: false, count: 0, error: error.message };
+        } else {
+          rep.tables[t] = { exists: true, count: count !== null ? count : 0 };
+        }
+      } catch (e: any) {
+        rep.tables[t] = { exists: false, count: 0, error: e?.message || 'Error' };
+      }
+    }
+    rep.connected = Object.values(rep.tables).some(tbl => tbl.exists);
+  } catch {
+    rep.connected = false;
+  }
+  rep.latencyMs = Date.now() - start;
+  return rep;
+}
+
+export async function pullAllCloudDataToLocal(reportId = 'rep-2026'): Promise<{ success: boolean; message: string; pulledCount?: number; details?: any; error?: string }> {
+  try {
+    await checkAnnualTablesExist(true);
+    // 1. Reports
+    const { data: reps } = await supabase.from('annual_reports').select('*');
+    if (reps && reps.length > 0) setStored('sipakar_annual_reports', reps);
+
+    // 2. Section profile
+    const { data: secProf } = await supabase.from('annual_section_profile').select('*').eq('report_id', reportId).maybeSingle();
+    if (secProf) setStored(`sipakar_sec_prof_${reportId}`, secProf);
+
+    // 3. Unit profiles
+    const { data: uProfs } = await supabase.from('annual_unit_profiles').select('*').eq('report_id', reportId);
+    if (uProfs && uProfs.length > 0) {
+      const rec: Record<string, AnnualUnitProfile> = {};
+      uProfs.forEach(p => { rec[p.unit_id] = p; });
+      setStored(`sipakar_unit_profs_${reportId}`, rec);
+    }
+
+    // 4. Staffing
+    const { data: stf } = await supabase.from('annual_unit_staffing').select('*').eq('report_id', reportId);
+    if (stf && stf.length > 0) setStored(`sipakar_staffing_${reportId}`, stf);
+
+    // 5. Authorities
+    const { data: auth } = await supabase.from('annual_unit_authorities').select('*').eq('report_id', reportId);
+    if (auth && auth.length > 0) setStored(`sipakar_auth_${reportId}`, auth);
+
+    // 6. Dynamic tables
+    const { data: prog } = await supabase.from('annual_unit_program_tables').select('*').eq('report_id', reportId);
+    if (prog && prog.length > 0) setStored(`sipakar_prog_tables_${reportId}`, prog);
+
+    // 7. Obstacles
+    const { data: obs } = await supabase.from('annual_unit_obstacles').select('*').eq('report_id', reportId);
+    if (obs && obs.length > 0) setStored(`sipakar_obstacles_${reportId}`, obs);
+
+    // 8. Unit plans (including the input from other devices!)
+    const { data: plans } = await supabase.from('annual_unit_plans').select('*').eq('report_id', reportId);
+    if (plans && plans.length > 0) setStored(`sipakar_plans_${reportId}`, plans);
+
+    // 9. Section plans
+    const { data: secPlans } = await supabase.from('annual_section_plans').select('*').eq('report_id', reportId);
+    if (secPlans && secPlans.length > 0) setStored(`sipakar_sec_plans_${reportId}`, secPlans);
+
+    const totalPulled = (plans?.length || 0) + (secPlans?.length || 0) + (stf?.length || 0) + (obs?.length || 0) + (uProfs?.length || 0) + (prog?.length || 0) + (auth?.length || 0);
+    return {
+      success: true,
+      message: `Berhasil menarik data cloud: ${plans?.length || 0} rencana kerja unit, ${stf?.length || 0} staf, ${obs?.length || 0} hambatan. Cache lokal telah diperbarui!`,
+      pulledCount: totalPulled,
+      details: { plans: plans?.length || 0, staffing: stf?.length || 0, obstacles: obs?.length || 0 }
+    };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Gagal sinkronisasi dari cloud', error: err?.message };
+  }
+}
+
+export async function pushAllLocalDataToCloud(reportId = 'rep-2026'): Promise<{ success: boolean; message: string; pushedCount?: number; error?: string }> {
+  try {
+    await checkAnnualTablesExist(true);
+    let totalPushed = 0;
+    // Push unit plans
+    const localPlans = getStored<AnnualUnitPlan[]>(`sipakar_plans_${reportId}`, []);
+    if (localPlans.length > 0) {
+      await supabase.from('annual_unit_plans').upsert(localPlans);
+      totalPushed += localPlans.length;
+    }
+    // Push section plans
+    const localSecPlans = getStored<AnnualSectionPlan[]>(`sipakar_sec_plans_${reportId}`, []);
+    if (localSecPlans.length > 0) {
+      await supabase.from('annual_section_plans').upsert(localSecPlans);
+      totalPushed += localSecPlans.length;
+    }
+    // Push staffing
+    const localStaffing = getStored<AnnualUnitStaffing[]>(`sipakar_staffing_${reportId}`, []);
+    if (localStaffing.length > 0) {
+      await supabase.from('annual_unit_staffing').upsert(localStaffing);
+      totalPushed += localStaffing.length;
+    }
+    // Push obstacles
+    const localObstacles = getStored<AnnualUnitObstacle[]>(`sipakar_obstacles_${reportId}`, []);
+    if (localObstacles.length > 0) {
+      await supabase.from('annual_unit_obstacles').upsert(localObstacles);
+      totalPushed += localObstacles.length;
+    }
+    return { 
+      success: true, 
+      message: 'Seluruh data lokal berhasil disinkronkan dan diunggah ke database Supabase!',
+      pushedCount: totalPushed
+    };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Gagal mengunggah data ke Supabase', error: err?.message };
+  }
 }

@@ -24,9 +24,23 @@ import {
   Play,
   Sparkles,
   Upload,
-  AlertCircle
+  AlertCircle,
+  Cloud,
+  CloudUpload,
+  CloudDownload,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Activity,
+  Server
 } from "lucide-react";
 import Swal from "sweetalert2";
+import { 
+  getSupabaseSyncDiagnostics, 
+  pullAllCloudDataToLocal, 
+  pushAllLocalDataToCloud,
+  SupabaseSyncReport
+} from "@/lib/annualReportService";
 
 const imagePresets = [
   {
@@ -104,7 +118,103 @@ export default function PengaturanPage() {
   } = useAppStore();
 
   const [mounted, setMounted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profil' | 'media' | 'users' | 'logs' | 'maintenance'>('profil');
+  const [activeTab, setActiveTab] = useState<'profil' | 'media' | 'users' | 'logs' | 'maintenance' | 'sync'>('profil');
+
+  // Tab: Supabase Cloud Sync states
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncDiagnostics, setSyncDiagnostics] = useState<SupabaseSyncReport | null>(null);
+
+  const runDiagnostics = async () => {
+    setSyncLoading(true);
+    try {
+      const diag = await getSupabaseSyncDiagnostics();
+      setSyncDiagnostics(diag);
+    } catch (e: any) {
+      console.error('Error running diagnostics:', e);
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'sync' && !syncDiagnostics && !syncLoading) {
+      runDiagnostics();
+    }
+  }, [activeTab]);
+
+  const handlePullCloud = async () => {
+    const res = await Swal.fire({
+      title: 'Tarik Data dari Supabase Cloud?',
+      text: 'Semua perubahan data laporan tahunan yang diinput dari komputer/perangkat lain (termasuk rencana kerja, profil unit, dan SDM) akan ditarik dan disinkronkan ke peramban ini.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Tarik Data',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#00A8A8'
+    });
+    if (!res.isConfirmed) return;
+    setSyncLoading(true);
+    try {
+      const result = await pullAllCloudDataToLocal();
+      if (result.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Sinkronisasi Berhasil',
+          text: `Berhasil menarik ${result.pulledCount} data dari Supabase Cloud ke browser ini!`,
+          confirmButtonColor: '#00A8A8'
+        });
+        await runDiagnostics();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Menarik Data',
+        text: err?.message || 'Terjadi gangguan koneksi ke Supabase.',
+        confirmButtonColor: '#ef4444'
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const handlePushCloud = async () => {
+    const res = await Swal.fire({
+      title: 'Unggah Data Lokal ke Supabase Cloud?',
+      text: 'Data laporan tahunan lokal di peramban ini akan dikirim dan disimpan sebagai cadangan ke Supabase Cloud.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Ya, Unggah ke Cloud',
+      cancelButtonText: 'Batal',
+      confirmButtonColor: '#00A8A8'
+    });
+    if (!res.isConfirmed) return;
+    setSyncLoading(true);
+    try {
+      const result = await pushAllLocalDataToCloud();
+      if (result.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Unggah Berhasil',
+          text: `Berhasil mengunggah ${result.pushedCount} data lokal ke Supabase Cloud!`,
+          confirmButtonColor: '#00A8A8'
+        });
+        await runDiagnostics();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (err: any) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Gagal Mengunggah Data',
+        text: err?.message || 'Terjadi gangguan koneksi ke Supabase.',
+        confirmButtonColor: '#ef4444'
+      });
+    } finally {
+      setSyncLoading(false);
+    }
+  };
 
   // Tab: Media & Banner states
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image');
@@ -530,6 +640,16 @@ export default function PengaturanPage() {
             }`}
           >
             Pemeliharaan
+          </button>
+
+          <button
+            onClick={() => setActiveTab('sync')}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'sync' ? 'bg-[#00A8A8] text-white shadow' : 'text-slate-600 hover:text-slate-800'
+            }`}
+          >
+            <Cloud size={13} />
+            <span>Sinkronisasi Cloud</span>
           </button>
         </div>
       </div>
@@ -1114,6 +1234,196 @@ export default function PengaturanPage() {
                 <RotateCcw size={13} />
                 <span>Reset Data</span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab Content 5: Supabase Cloud Synchronization */}
+      {activeTab === 'sync' && (
+        <div className="space-y-6 max-w-4xl">
+          {/* Main Status Card */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-200/80 flex items-center justify-center text-teal-600 shrink-0">
+                  <Cloud className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 text-base">Sinkronisasi Database Supabase Cloud</h3>
+                  <p className="text-xs text-slate-500">Kelola pertukaran data real-time antar komputer dan staf unit</p>
+                </div>
+              </div>
+
+              <button
+                onClick={runDiagnostics}
+                disabled={syncLoading}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              >
+                <RefreshCw size={14} className={syncLoading ? "animate-spin text-teal-600" : "text-slate-600"} />
+                <span>{syncLoading ? "Menguji Koneksi..." : "Tes Koneksi & Refresh"}</span>
+              </button>
+            </div>
+
+            {/* Connection Metrics / Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  syncDiagnostics?.connected ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
+                }`}>
+                  {syncDiagnostics?.connected ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Status Cloud</span>
+                  <span className={`text-xs font-black ${syncDiagnostics?.connected ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    {syncDiagnostics?.connected ? 'Terhubung (Online)' : (syncLoading ? 'Memeriksa...' : 'Terputus')}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center">
+                  <Activity size={18} />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Respon / Latency</span>
+                  <span className="text-xs font-black text-slate-800">
+                    {syncDiagnostics?.latencyMs ? `${syncDiagnostics.latencyMs} ms` : '-'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Server size={18} />
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Host Server</span>
+                  <span className="text-xs font-mono font-bold text-slate-700 truncate block max-w-[150px]" title="yffqujymsznuhhcmhvfn.supabase.co">
+                    yffqujymszn...
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Error banner if not reachable */}
+            {syncDiagnostics && !syncDiagnostics.connected && (
+              <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 space-y-1">
+                <p className="font-extrabold flex items-center gap-1.5 text-rose-800">
+                  <AlertCircle size={15} /> Database Supabase Tidak Dapat Dijangkau
+                </p>
+                <p className="text-[11px] text-rose-700">
+                  Pastikan komputer terhubung ke internet dan URL/Anon Key Supabase aktif.
+                </p>
+              </div>
+            )}
+
+            {/* Sync Action Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-xl border-2 border-teal-200 bg-teal-50/50 space-y-3 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-teal-800 font-extrabold text-sm">
+                    <CloudDownload className="text-teal-600 w-5 h-5" />
+                    <h4>Tarik Data dari Cloud (Pull)</h4>
+                  </div>
+                  <p className="text-xs text-teal-900/80 leading-relaxed">
+                    Sinkronkan data yang baru diinput atau diubah oleh unit lain (seperti CSSD & Laundry, Gizi, Radiologi, dll.) dari server Supabase ke peramban komputer ini.
+                  </p>
+                </div>
+                <button
+                  onClick={handlePullCloud}
+                  disabled={syncLoading}
+                  className="w-full py-2.5 px-4 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <CloudDownload size={15} />
+                  <span>Tarik Data Terbaru dari Cloud</span>
+                </button>
+              </div>
+
+              <div className="p-4 rounded-xl border-2 border-slate-200 bg-slate-50 space-y-3 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 text-slate-800 font-extrabold text-sm">
+                    <CloudUpload className="text-slate-600 w-5 h-5" />
+                    <h4>Unggah Data ke Cloud (Push)</h4>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Kirimkan seluruh data draf laporan tahunan yang ada di memori browser komputer ini ke server Supabase Cloud agar dapat dilihat oleh pimpinan dan unit lain.
+                  </p>
+                </div>
+                <button
+                  onClick={handlePushCloud}
+                  disabled={syncLoading}
+                  className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white rounded-xl text-xs font-black shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  <CloudUpload size={15} />
+                  <span>Unggah Data Lokal ke Cloud</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Cloud Tables Status Table */}
+            <div className="pt-2 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Database size={14} className="text-teal-600" /> Status 15 Tabel Laporan Tahunan di Supabase
+                </h4>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {syncDiagnostics?.tables ? `${Object.values(syncDiagnostics.tables).filter(t => t.exists).length} tabel aktif` : 'Memeriksa...'}
+                </span>
+              </div>
+
+              <div className="border border-slate-200/80 rounded-xl overflow-hidden text-xs">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-100 text-slate-600 font-black text-[10px] uppercase tracking-wider border-b border-slate-200">
+                      <th className="p-2.5 pl-3">Nama Tabel</th>
+                      <th className="p-2.5">Status</th>
+                      <th className="p-2.5 pr-3 text-right">Jumlah Baris Data</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {syncDiagnostics?.tables ? (
+                      Object.entries(syncDiagnostics.tables).map(([tableName, t]) => (
+                        <tr 
+                          key={tableName} 
+                          className={`hover:bg-slate-50/70 transition-colors ${
+                            t.count > 0 ? 'bg-teal-50/30 font-semibold' : ''
+                          }`}
+                        >
+                          <td className="p-2.5 pl-3 font-mono text-slate-800 flex items-center gap-2">
+                            <span>{tableName}</span>
+                            {tableName === 'annual_unit_plans' && t.count > 0 && (
+                              <span className="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded font-sans font-bold">
+                                Ada Input Unit
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2.5">
+                            {t.exists ? (
+                              <span className="inline-flex items-center gap-1 text-emerald-600 font-bold text-[11px]">
+                                <CheckCircle2 size={13} /> Aktif & Siap
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-rose-600 font-bold text-[11px]">
+                                <XCircle size={13} /> Belum Ada
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2.5 pr-3 text-right font-mono font-bold text-slate-900">
+                            {t.count} data
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={3} className="p-6 text-center text-slate-400">
+                          {syncLoading ? "Mengambil status tabel Supabase..." : "Klik 'Tes Koneksi & Refresh' untuk memuat status."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>
