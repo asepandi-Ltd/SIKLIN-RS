@@ -289,6 +289,9 @@ export async function getUnitStaffing(reportId: string, unitId?: string): Promis
       if (unitId) query = query.eq('unit_id', unitId);
       const { data, error } = await query.order('created_at', { ascending: true });
       if (!error && data && data.length > 0) {
+        const stored = getStored<AnnualUnitStaffing[]>(`sipakar_staffing_${reportId}`, []);
+        const otherUnits = unitId ? stored.filter(s => s.unit_id !== unitId) : [];
+        setStored(`sipakar_staffing_${reportId}`, [...otherUnits, ...data]);
         return data as AnnualUnitStaffing[];
       }
     } catch (err) {
@@ -304,6 +307,13 @@ export async function getUnitStaffing(reportId: string, unitId?: string): Promis
     if (defaults.length > 0) {
       const merged = [...all, ...defaults];
       setStored(`sipakar_staffing_${reportId}`, merged);
+      if (await checkAnnualTablesExist()) {
+        try {
+          await supabase.from('annual_unit_staffing').upsert(defaults);
+        } catch (e) {
+          logDbError('autoSeedStaffing', e);
+        }
+      }
       return defaults;
     }
   }
@@ -353,6 +363,9 @@ export async function getUnitAuthorities(reportId: string, unitId?: string): Pro
       if (unitId) query = query.eq('unit_id', unitId);
       const { data, error } = await query.order('created_at', { ascending: true });
       if (!error && data && data.length > 0) {
+        const stored = getStored<AnnualUnitAuthority[]>(`sipakar_authorities_${reportId}`, []);
+        const otherUnits = unitId ? stored.filter(a => a.unit_id !== unitId) : [];
+        setStored(`sipakar_authorities_${reportId}`, [...otherUnits, ...data]);
         return data as AnnualUnitAuthority[];
       }
     } catch (err) {
@@ -368,6 +381,13 @@ export async function getUnitAuthorities(reportId: string, unitId?: string): Pro
     if (defaults.length > 0) {
       const merged = [...all, ...defaults];
       setStored(`sipakar_authorities_${reportId}`, merged);
+      if (await checkAnnualTablesExist()) {
+        try {
+          await supabase.from('annual_unit_authorities').upsert(defaults);
+        } catch (e) {
+          logDbError('autoSeedAuthorities', e);
+        }
+      }
       return defaults;
     }
   }
@@ -432,6 +452,10 @@ export async function getUnitProgramTables(reportId: string, unitId?: string): P
       const { data, error } = await query.order('sort_order', { ascending: true });
       if (!error && data && data.length > 0) {
         list = data as AnnualUnitProgramTable[];
+        const stored = getStored<AnnualUnitProgramTable[]>(`sipakar_progtables_${reportId}`, []);
+        const otherUnits = unitId ? stored.filter(t => t.unit_id !== unitId) : [];
+        setStored(`sipakar_progtables_${reportId}`, [...otherUnits, ...list]);
+        return list;
       }
     } catch (err) {
       logDbError('getUnitProgramTables catch', err);
@@ -498,6 +522,9 @@ export async function getUnitObstacles(reportId: string, unitId?: string): Promi
       if (unitId) query = query.eq('unit_id', unitId);
       const { data, error } = await query.order('created_at', { ascending: true });
       if (!error && data && data.length > 0) {
+        const stored = getStored<AnnualUnitObstacle[]>(`sipakar_obstacles_${reportId}`, []);
+        const otherUnits = unitId ? stored.filter(o => o.unit_id !== unitId) : [];
+        setStored(`sipakar_obstacles_${reportId}`, [...otherUnits, ...data]);
         return data as AnnualUnitObstacle[];
       }
     } catch (err) {
@@ -513,6 +540,13 @@ export async function getUnitObstacles(reportId: string, unitId?: string): Promi
     if (defaults.length > 0) {
       const merged = [...all, ...defaults];
       setStored(`sipakar_obstacles_${reportId}`, merged);
+      if (await checkAnnualTablesExist()) {
+        try {
+          await supabase.from('annual_unit_obstacles').upsert(defaults);
+        } catch (e) {
+          logDbError('autoSeedObstacles', e);
+        }
+      }
       return defaults;
     }
   }
@@ -780,29 +814,45 @@ export async function consolidateAnnualReportData(
   // 3. Fetch staffing and authorities
   const rawStaffing = await getUnitStaffing(reportId);
   const unitStaffing: Record<string, AnnualUnitStaffing[]> = {};
-  ACTIVE_MASTER_UNITS.forEach(u => {
-    unitStaffing[u.id] = rawStaffing.filter(s => s.unit_id === u.id);
-  });
+  for (const u of ACTIVE_MASTER_UNITS) {
+    let sList = rawStaffing.filter(s => s.unit_id === u.id);
+    if (sList.length === 0) {
+      sList = await getUnitStaffing(reportId, u.id);
+    }
+    unitStaffing[u.id] = sList;
+  }
 
   const rawAuthorities = await getUnitAuthorities(reportId);
   const unitAuthorities: Record<string, AnnualUnitAuthority[]> = {};
-  ACTIVE_MASTER_UNITS.forEach(u => {
-    unitAuthorities[u.id] = rawAuthorities.filter(a => a.unit_id === u.id);
-  });
+  for (const u of ACTIVE_MASTER_UNITS) {
+    let aList = rawAuthorities.filter(a => a.unit_id === u.id);
+    if (aList.length === 0) {
+      aList = await getUnitAuthorities(reportId, u.id);
+    }
+    unitAuthorities[u.id] = aList;
+  }
 
   // 4. Fetch dynamic tables
   const rawTables = await getUnitProgramTables(reportId);
   const unitProgramTables: Record<string, AnnualUnitProgramTable[]> = {};
-  ACTIVE_MASTER_UNITS.forEach(u => {
-    unitProgramTables[u.id] = rawTables.filter(t => t.unit_id === u.id);
-  });
+  for (const u of ACTIVE_MASTER_UNITS) {
+    let tList = rawTables.filter(t => t.unit_id === u.id);
+    if (tList.length === 0) {
+      tList = await getUnitProgramTables(reportId, u.id);
+    }
+    unitProgramTables[u.id] = tList;
+  }
 
   // 5. Fetch obstacles and plans
   const rawObstacles = await getUnitObstacles(reportId);
   const unitObstacles: Record<string, AnnualUnitObstacle[]> = {};
-  ACTIVE_MASTER_UNITS.forEach(u => {
-    unitObstacles[u.id] = rawObstacles.filter(o => o.unit_id === u.id);
-  });
+  for (const u of ACTIVE_MASTER_UNITS) {
+    let oList = rawObstacles.filter(o => o.unit_id === u.id);
+    if (oList.length === 0) {
+      oList = await getUnitObstacles(reportId, u.id);
+    }
+    unitObstacles[u.id] = oList;
+  }
 
   const rawUnitPlans = await getUnitPlans(reportId);
   const unitPlans: Record<string, AnnualUnitPlan[]> = {};
@@ -1009,11 +1059,11 @@ export async function pullAllCloudDataToLocal(reportId = 'rep-2026'): Promise<{ 
 
     // 5. Authorities
     const { data: auth } = await supabase.from('annual_unit_authorities').select('*').eq('report_id', reportId);
-    if (auth && auth.length > 0) setStored(`sipakar_auth_${reportId}`, auth);
+    if (auth && auth.length > 0) setStored(`sipakar_authorities_${reportId}`, auth);
 
     // 6. Dynamic tables
     const { data: prog } = await supabase.from('annual_unit_program_tables').select('*').eq('report_id', reportId);
-    if (prog && prog.length > 0) setStored(`sipakar_prog_tables_${reportId}`, prog);
+    if (prog && prog.length > 0) setStored(`sipakar_progtables_${reportId}`, prog);
 
     // 7. Obstacles
     const { data: obs } = await supabase.from('annual_unit_obstacles').select('*').eq('report_id', reportId);
@@ -1030,9 +1080,9 @@ export async function pullAllCloudDataToLocal(reportId = 'rep-2026'): Promise<{ 
     const totalPulled = (plans?.length || 0) + (secPlans?.length || 0) + (stf?.length || 0) + (obs?.length || 0) + (uProfs?.length || 0) + (prog?.length || 0) + (auth?.length || 0);
     return {
       success: true,
-      message: `Berhasil menarik data cloud: ${plans?.length || 0} rencana kerja unit, ${stf?.length || 0} staf, ${obs?.length || 0} hambatan. Cache lokal telah diperbarui!`,
+      message: `Berhasil menarik data cloud: ${plans?.length || 0} rencana kerja, ${stf?.length || 0} staf, ${auth?.length || 0} uraian tugas, ${prog?.length || 0} program kegiatan, ${obs?.length || 0} hambatan. Cache lokal telah diperbarui!`,
       pulledCount: totalPulled,
-      details: { plans: plans?.length || 0, staffing: stf?.length || 0, obstacles: obs?.length || 0 }
+      details: { plans: plans?.length || 0, staffing: stf?.length || 0, authorities: auth?.length || 0, programs: prog?.length || 0, obstacles: obs?.length || 0 }
     };
   } catch (err: any) {
     return { success: false, message: err?.message || 'Gagal sinkronisasi dari cloud', error: err?.message };
@@ -1076,6 +1126,18 @@ export async function pushAllLocalDataToCloud(reportId = 'rep-2026'): Promise<{ 
     if (localStaffing.length > 0) {
       await supabase.from('annual_unit_staffing').upsert(localStaffing);
       totalPushed += localStaffing.length;
+    }
+    // Push authorities
+    const localAuthorities = getStored<AnnualUnitAuthority[]>(`sipakar_authorities_${reportId}`, []);
+    if (localAuthorities.length > 0) {
+      await supabase.from('annual_unit_authorities').upsert(localAuthorities);
+      totalPushed += localAuthorities.length;
+    }
+    // Push dynamic tables
+    const localTables = getStored<AnnualUnitProgramTable[]>(`sipakar_progtables_${reportId}`, []);
+    if (localTables.length > 0) {
+      await supabase.from('annual_unit_program_tables').upsert(localTables);
+      totalPushed += localTables.length;
     }
     // Push obstacles
     const localObstacles = getStored<AnnualUnitObstacle[]>(`sipakar_obstacles_${reportId}`, []);
