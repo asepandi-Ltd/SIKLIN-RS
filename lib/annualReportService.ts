@@ -994,6 +994,22 @@ export async function pushAllLocalDataToCloud(reportId = 'rep-2026'): Promise<{ 
   try {
     await checkAnnualTablesExist(true);
     let totalPushed = 0;
+
+    // Push section profile (including pejabat penandatangan, swot, etc.)
+    const localSecProf = getStored<AnnualSectionProfile | null>(`sipakar_sec_prof_${reportId}`, null);
+    if (localSecProf) {
+      await supabase.from('annual_section_profile').upsert(localSecProf);
+      totalPushed += 1;
+    }
+
+    // Push unit profiles
+    const localUnitProfs = getStored<Record<string, AnnualUnitProfile>>(`sipakar_unit_profs_${reportId}`, {});
+    const unitProfValues = Object.values(localUnitProfs);
+    if (unitProfValues.length > 0) {
+      await supabase.from('annual_unit_profiles').upsert(unitProfValues);
+      totalPushed += unitProfValues.length;
+    }
+
     // Push unit plans
     const localPlans = getStored<AnnualUnitPlan[]>(`sipakar_plans_${reportId}`, []);
     if (localPlans.length > 0) {

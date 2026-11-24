@@ -702,34 +702,66 @@ export default function SectionReportDashboard({
               </div>
             </div>
 
-            <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-              <h4 className="font-bold text-slate-800 text-xs">Identitas Pejabat Penandatangan</h4>
+            <div className="p-4 bg-teal-50/60 rounded-xl border border-teal-200/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-extrabold text-teal-950 text-xs flex items-center gap-1.5">
+                    <FileCheck size={15} className="text-teal-600" /> Identitas Pejabat Penandatangan Dokumen (Kepala Seksi)
+                  </h4>
+                  <p className="text-[11px] text-teal-700 mt-0.5">
+                    Data nama dan NIP ini akan otomatis tercantum pada lembar pengesahan cetak laporan di seluruh 11 unit.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer"
+                >
+                  <Save size={13} /> Simpan Perubahan Pejabat
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">Nama Pejabat</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Nama Pejabat</label>
                   <input
                     type="text"
                     value={sectionProfile.pejabat_nama || ''}
-                    onChange={e => setSectionProfile({ ...sectionProfile, pejabat_nama: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-slate-800"
+                    onChange={e => {
+                      const updated = { ...sectionProfile, pejabat_nama: e.target.value };
+                      setSectionProfile(updated);
+                    }}
+                    onBlur={() => upsertSectionProfile(sectionProfile)}
+                    placeholder="Contoh: Bono Andi, S.Kep., Ners"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">NIP</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">NIP</label>
                   <input
                     type="text"
                     value={sectionProfile.pejabat_nip || ''}
-                    onChange={e => setSectionProfile({ ...sectionProfile, pejabat_nip: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-slate-800"
+                    onChange={e => {
+                      const updated = { ...sectionProfile, pejabat_nip: e.target.value };
+                      setSectionProfile(updated);
+                    }}
+                    onBlur={() => upsertSectionProfile(sectionProfile)}
+                    placeholder="Contoh: 19820415 200801 1 005"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-500 mb-1">Jabatan</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Jabatan Resmi</label>
                   <input
                     type="text"
                     value={sectionProfile.pejabat_jabatan || ''}
-                    onChange={e => setSectionProfile({ ...sectionProfile, pejabat_jabatan: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-semibold text-slate-800"
+                    onChange={e => {
+                      const updated = { ...sectionProfile, pejabat_jabatan: e.target.value };
+                      setSectionProfile(updated);
+                    }}
+                    onBlur={() => upsertSectionProfile(sectionProfile)}
+                    placeholder="Contoh: Kepala Seksi Penunjang, Mutu, Humas dan Pemasaran"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 font-bold text-slate-800 text-xs focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
                   />
                 </div>
               </div>
@@ -1345,6 +1377,7 @@ export default function SectionReportDashboard({
             unit={inspectorUnit}
             allIndikators={allIndikators}
             allCapaian={allCapaian}
+            sectionProfile={sectionProfile}
             readOnly={false}
           />
         </div>

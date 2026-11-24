@@ -5,8 +5,8 @@ import { useAppStore } from "@/lib/store";
 import { ACTIVE_MASTER_UNITS, normalizeUnit, MasterUnit } from "@/lib/units";
 import SectionReportDashboard from "@/components/laporan/SectionReportDashboard";
 import UnitReportForm from "@/components/laporan/UnitReportForm";
-import { getOrCreateAnnualReport, checkAnnualTablesExist, pullAllCloudDataToLocal } from "@/lib/annualReportService";
-import { AnnualReport } from "@/lib/annualReportTypes";
+import { getOrCreateAnnualReport, checkAnnualTablesExist, pullAllCloudDataToLocal, getSectionProfile } from "@/lib/annualReportService";
+import { AnnualReport, AnnualSectionProfile } from "@/lib/annualReportTypes";
 import Swal from "sweetalert2";
 import {
   FileText,
@@ -27,6 +27,7 @@ export default function LaporanPage() {
   const [mounted, setMounted] = useState(false);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [annualReport, setAnnualReport] = useState<AnnualReport | null>(null);
+  const [sectionProfile, setSectionProfile] = useState<AnnualSectionProfile | null>(null);
   const [isCloudActive, setIsCloudActive] = useState<boolean | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -45,6 +46,8 @@ export default function LaporanPage() {
       if (res.success) {
         const rep = await getOrCreateAnnualReport(selectedYear, currentUser?.nama || 'Kepala Seksi');
         setAnnualReport(rep);
+        const sec = await getSectionProfile(rep.id, rep.report_year);
+        setSectionProfile(sec);
         Swal.fire({
           icon: 'success',
           title: 'Data Berhasil Disinkronkan',
@@ -79,6 +82,8 @@ export default function LaporanPage() {
       try {
         const rep = await getOrCreateAnnualReport(selectedYear, currentUser?.nama || 'Kepala Seksi');
         setAnnualReport(rep);
+        const sec = await getSectionProfile(rep.id, rep.report_year);
+        setSectionProfile(sec);
       } catch (err) {
         console.error('Failed initializing annual report:', err);
       }
@@ -220,6 +225,7 @@ export default function LaporanPage() {
             unit={unitMode || ACTIVE_MASTER_UNITS[0]}
             allIndikators={indikatorList}
             allCapaian={capaianList}
+            sectionProfile={sectionProfile}
             readOnly={false}
           />
         </div>

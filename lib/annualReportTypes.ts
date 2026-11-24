@@ -47,6 +47,8 @@ export interface AnnualUnitProfile {
   operating_hours?: string;
   facilities?: string;
   other_information?: string;
+  kepala_unit_nama?: string;
+  kepala_unit_nip?: string;
   created_at?: string;
   updated_at?: string;
 }

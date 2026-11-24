@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   AnnualReport,
+  AnnualSectionProfile,
   AnnualUnitProfile,
   AnnualUnitStaffing,
   AnnualUnitAuthority,
@@ -18,6 +19,7 @@ import DynamicTableBuilder from './DynamicTableBuilder';
 import {
   getOrCreateUnitProfile,
   upsertUnitProfile,
+  getSectionProfile,
   getUnitStaffing,
   upsertUnitStaffing,
   deleteUnitStaffing,
@@ -54,7 +56,8 @@ import {
   Sparkles,
   Search,
   ExternalLink,
-  Printer
+  Printer,
+  FileCheck
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import {
@@ -74,6 +77,7 @@ interface UnitReportFormProps {
   allIndikators: Indikator[];
   allCapaian: Capaian[];
   readOnly?: boolean;
+  sectionProfile?: AnnualSectionProfile | null;
 }
 
 export default function UnitReportForm({
@@ -81,14 +85,16 @@ export default function UnitReportForm({
   unit,
   allIndikators,
   allCapaian,
-  readOnly = false
+  readOnly = false,
+  sectionProfile: propSectionProfile
 }: UnitReportFormProps) {
-  const { currentUser, pengaturan } = useAppStore();
+  const { currentUser, pengaturan, users } = useAppStore();
   const [activeStep, setActiveStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Unit Data States
   const [profile, setProfile] = useState<AnnualUnitProfile | null>(null);
+  const [sectionProfile, setSectionProfile] = useState<AnnualSectionProfile | null>(propSectionProfile || null);
   const [staffing, setStaffing] = useState<AnnualUnitStaffing[]>([]);
   const [authorities, setAuthorities] = useState<AnnualUnitAuthority[]>([]);
   const [programTables, setProgramTables] = useState<AnnualUnitProgramTable[]>([]);
@@ -96,6 +102,13 @@ export default function UnitReportForm({
   const [plans, setPlans] = useState<AnnualUnitPlan[]>([]);
   const [kpiList, setKpiList] = useState<AnnualKpiSummaryItem[]>([]);
   const [selectedKpiForDetail, setSelectedKpiForDetail] = useState<AnnualKpiSummaryItem | null>(null);
+
+  // Sync if propSectionProfile changes externally
+  useEffect(() => {
+    if (propSectionProfile) {
+      setSectionProfile(propSectionProfile);
+    }
+  }, [propSectionProfile]);
 
   // Staffing Form Modal
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
@@ -119,13 +132,14 @@ export default function UnitReportForm({
     async function loadData() {
       setLoading(true);
       try {
-        const [prof, staffList, authList, progList, obsList, planList] = await Promise.all([
+        const [prof, staffList, authList, progList, obsList, planList, secProf] = await Promise.all([
           getOrCreateUnitProfile(report.id, unit),
           getUnitStaffing(report.id, unit.id),
           getUnitAuthorities(report.id, unit.id),
           getUnitProgramTables(report.id, unit.id),
           getUnitObstacles(report.id, unit.id),
-          getUnitPlans(report.id, unit.id)
+          getUnitPlans(report.id, unit.id),
+          getSectionProfile(report.id, report.report_year)
         ]);
 
         if (isMounted) {
@@ -135,6 +149,7 @@ export default function UnitReportForm({
           setProgramTables(progList);
           setObstacles(obsList);
           setPlans(planList);
+          setSectionProfile(propSectionProfile || secProf);
 
           // Calculate KPI from existing store
           const kpis = calculateAnnualKpiForUnit(unit, allIndikators, allCapaian, report.report_year);
@@ -555,6 +570,34 @@ export default function UnitReportForm({
                   onChange={e => setProfile({ ...profile, operating_hours: e.target.value })}
                   disabled={readOnly}
                   placeholder="Contoh: 24 Jam (Shift) / Hari Kerja 08.00 - 16.00 WIB"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Nama Kepala Unit / Penanggung Jawab
+                </label>
+                <input
+                  type="text"
+                  value={profile.kepala_unit_nama || ''}
+                  onChange={e => setProfile({ ...profile, kepala_unit_nama: e.target.value })}
+                  disabled={readOnly}
+                  placeholder="Nama Kepala / Penanggung Jawab Unit"
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  NIP Kepala Unit
+                </label>
+                <input
+                  type="text"
+                  value={profile.kepala_unit_nip || ''}
+                  onChange={e => setProfile({ ...profile, kepala_unit_nip: e.target.value })}
+                  disabled={readOnly}
+                  placeholder="Contoh: 19850612 201001 1 008"
                   className="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none"
                 />
               </div>
@@ -1346,6 +1389,19 @@ export default function UnitReportForm({
               </div>
             </div>
 
+            {/* Pejabat Penandatangan Info Bar */}
+            <div className="bg-teal-50/80 border border-teal-200/80 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs text-teal-950">
+              <div className="flex items-center gap-2">
+                <FileCheck className="text-teal-600 shrink-0" size={16} />
+                <span>
+                  Pejabat Penandatangan Mengetahui: <b>{sectionProfile?.pejabat_nama || 'Dr. Fitri Wulandari'}</b> {sectionProfile?.pejabat_nip ? `(NIP. ${sectionProfile.pejabat_nip})` : ''}
+                </span>
+              </div>
+              <span className="text-[11px] text-teal-700 font-medium">
+                Jabatan: <b>{sectionProfile?.pejabat_jabatan || 'Kepala Seksi Penunjang, Mutu, Humas dan Pemasaran'}</b>
+              </span>
+            </div>
+
             {/* Document Container on Step 7 */}
             <UnitPrintableDocument
               unit={unit}
@@ -1359,6 +1415,7 @@ export default function UnitReportForm({
               plans={plans}
               pengaturan={pengaturan}
               currentUser={currentUser}
+              sectionProfile={sectionProfile}
             />
           </div>
         )}
@@ -1378,6 +1435,7 @@ export default function UnitReportForm({
               plans={plans}
               pengaturan={pengaturan}
               currentUser={currentUser}
+              sectionProfile={sectionProfile}
             />
           </div>
         )}
@@ -1883,7 +1941,8 @@ function UnitPrintableDocument({
   obstacles,
   plans,
   pengaturan,
-  currentUser
+  currentUser,
+  sectionProfile
 }: {
   unit: MasterUnit;
   report: AnnualReport;
@@ -1896,6 +1955,7 @@ function UnitPrintableDocument({
   plans: AnnualUnitPlan[];
   pengaturan: any;
   currentUser: any;
+  sectionProfile: AnnualSectionProfile | null;
 }) {
   const totalStaff = staffing.length;
   const totalPns = staffing.filter(s => s.employment_status === 'PNS').length;
@@ -2344,14 +2404,16 @@ function UnitPrintableDocument({
           {/* Kolom Kiri: Mengetahui Kepala Seksi */}
           <div className="text-center space-y-1">
             <p className="font-medium">Mengetahui,</p>
-            <p className="font-bold">Kepala Seksi Penunjang, Mutu, Humas dan Pemasaran</p>
-            <p>UOBK RSUD Al-Mulk Kota Sukabumi</p>
+            <p className="font-bold">
+              {sectionProfile?.pejabat_jabatan || 'Kepala Seksi Penunjang, Mutu, Humas dan Pemasaran'}
+            </p>
+            <p>{pengaturan?.nama_rs || 'UOBK RSUD Al-Mulk Kota Sukabumi'}</p>
             <div className="h-20" />
             <p className="font-bold underline text-slate-900 print:text-black">
-              Dr. Fitri Wulandari
+              {sectionProfile?.pejabat_nama || 'Dr. Fitri Wulandari'}
             </p>
             <p className="text-[11px] text-slate-600 print:text-black">
-              NIP. 19820415 200801 2 011
+              NIP. {sectionProfile?.pejabat_nip || '19820415 200801 2 011'}
             </p>
           </div>
 
@@ -2359,13 +2421,13 @@ function UnitPrintableDocument({
           <div className="text-center space-y-1">
             <p className="font-medium">Sukabumi, 31 Desember {report.report_year}</p>
             <p className="font-bold">Kepala Unit {unit.name}</p>
-            <p>UOBK RSUD Al-Mulk Kota Sukabumi</p>
+            <p>{pengaturan?.nama_rs || 'UOBK RSUD Al-Mulk Kota Sukabumi'}</p>
             <div className="h-20" />
             <p className="font-bold underline text-slate-900 print:text-black">
-              {currentUser?.role === 'Kepala Unit' && currentUser?.unit === unit.name ? currentUser?.nama : `Kepala Unit ${unit.name}`}
+              {profile?.kepala_unit_nama || (currentUser?.role === 'Kepala Unit' && currentUser?.unit === unit.name ? currentUser?.nama : `Kepala Unit ${unit.name}`)}
             </p>
             <p className="text-[11px] text-slate-600 print:text-black">
-              NIP. ....................................................
+              {profile?.kepala_unit_nip ? `NIP. ${profile.kepala_unit_nip}` : 'NIP. ....................................................'}
             </p>
           </div>
         </div>
