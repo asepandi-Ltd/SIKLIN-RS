@@ -161,6 +161,7 @@ export interface AnnualSectionPlan {
   report_id: string;
   section_plan_title: string;
   source_unit_ids: string[];
+  unit_id?: string;
   problem: string; // Masalah/Latar Belakang
   strategic_action: string; // Nama Kegiatan/Barang
   target_completion?: string;

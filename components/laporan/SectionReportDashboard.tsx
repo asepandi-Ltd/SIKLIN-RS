@@ -6,7 +6,8 @@ import {
   AnnualSectionProfile,
   AnnualReportFullData,
   AnnualReportSnapshot,
-  AnnualSectionPlan
+  AnnualSectionPlan,
+  AnnualUnitPlan
 } from '@/lib/annualReportTypes';
 import { ACTIVE_MASTER_UNITS, MasterUnit } from '@/lib/units';
 import { Indikator, Capaian, Pengaturan, User } from '@/lib/store';
@@ -17,6 +18,9 @@ import {
   getSectionPlans,
   upsertSectionPlan,
   deleteSectionPlan,
+  getUnitPlans,
+  upsertUnitPlan,
+  deleteUnitPlan,
   consolidateAnnualReportData,
   getReportSnapshot,
   upsertReportSnapshot,
@@ -48,7 +52,9 @@ import {
   Eye,
   FileCheck,
   TrendingUp,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Search,
+  Filter
 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import {
@@ -93,7 +99,14 @@ export default function SectionReportDashboard({
 
   // Section Plan Modal
   const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<Partial<AnnualSectionPlan> | null>(null);
+  const [editingPlan, setEditingPlan] = useState<any | null>(null);
+
+  // Filter & Search states for Tab 6 (Rencana Kerja Seksi & Rekap Unit)
+  const [planFilterUnit, setPlanFilterUnit] = useState<string>('all');
+  const [planFilterUrgensi, setPlanFilterUrgensi] = useState<string>('all');
+  const [planFilterWaktu, setPlanFilterWaktu] = useState<string>('all');
+  const [planSearchQuery, setPlanSearchQuery] = useState<string>('');
+  const [isRefreshingPlans, setIsRefreshingPlans] = useState<boolean>(false);
 
   // Filter in Tab 4 (KPI)
   const [kpiFilterUnit, setKpiFilterUnit] = useState<string>('Semua Unit');
@@ -153,70 +166,280 @@ export default function SectionReportDashboard({
     }
   };
 
-  // Section Plan Handlers
-  const handleSaveSectionPlan = async (e: React.FormEvent) => {
+  // Plan Handlers (Menyimpan usulan rencana kerja baik unit maupun seksi)
+  const handleSavePlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!report || !editingPlan?.strategic_action) return;
+    if (!report || !editingPlan) return;
+    const planTitle = editingPlan.strategic_action || editingPlan.action_plan;
+    if (!planTitle) return;
 
     const vol = Number(editingPlan.volume) > 0 ? Number(editingPlan.volume) : 1;
     const harga = Number(editingPlan.harga_satuan) || 0;
-    const total = vol * harga;
+    const total = (editingPlan.total_biaya !== undefined && Number(editingPlan.total_biaya) > 0)
+      ? Number(editingPlan.total_biaya)
+      : vol * harga;
     const waktuBulan = editingPlan.waktu || editingPlan.target_completion || 'Januari';
     const urgensiVal = (editingPlan.urgensi || editingPlan.priority || 'Sedang') as 'Tinggi' | 'Sedang' | 'Rendah';
+    const unitId = editingPlan.unit_id;
 
-    const planObj: AnnualSectionPlan = {
-      id: editingPlan.id || `secplan-${Date.now()}`,
-      report_id: report.id,
-      section_plan_title: editingPlan.section_plan_title || editingPlan.strategic_action,
-      source_unit_ids: editingPlan.source_unit_ids || [],
-      problem: editingPlan.problem || '',
-      strategic_action: editingPlan.strategic_action,
-      target_completion: waktuBulan,
-      waktu: waktuBulan,
-      resource_needs: editingPlan.resource_needs || '',
-      success_indicator: editingPlan.success_indicator || '',
-      priority: urgensiVal,
-      urgensi: urgensiVal,
-      volume: vol,
-      satuan: editingPlan.satuan || 'Paket',
-      harga_satuan: harga,
-      total_biaya: total
-    };
-
-    const ok = await upsertSectionPlan(planObj);
-    if (ok) {
-      const idx = sectionPlans.findIndex(p => p.id === planObj.id);
-      if (idx >= 0) {
-        const next = [...sectionPlans];
-        next[idx] = planObj;
-        setSectionPlans(next);
-      } else {
-        setSectionPlans([...sectionPlans, planObj]);
-      }
-      setIsPlanModalOpen(false);
-      setEditingPlan(null);
-
-      // Refresh consolidation
-      const full = await consolidateAnnualReportData(report, allIndikators, allCapaian);
-      setConsolidatedData(full);
+    if (unitId && unitId !== 'seksi') {
+      const unitPlanObj: AnnualUnitPlan = {
+        id: editingPlan.id || `pln-${report.id}-${unitId}-${Date.now().toString(36)}`,
+        report_id: report.id,
+        unit_id: unitId,
+        action_plan: planTitle,
+        problem: editingPlan.problem || '',
+        volume: vol,
+        satuan: editingPlan.satuan || 'Paket',
+        harga_satuan: harga,
+        total_biaya: total,
+        target_completion: waktuBulan,
+        waktu: waktuBulan,
+        priority: urgensiVal,
+        urgensi: urgensiVal,
+        success_indicator: editingPlan.success_indicator || '',
+        updated_at: new Date().toISOString()
+      };
+      await upsertUnitPlan(unitPlanObj);
+    } else {
+      const secPlanObj: AnnualSectionPlan = {
+        id: editingPlan.id || `secplan-${Date.now()}`,
+        report_id: report.id,
+        section_plan_title: planTitle,
+        source_unit_ids: editingPlan.source_unit_ids || [],
+        problem: editingPlan.problem || '',
+        strategic_action: planTitle,
+        target_completion: waktuBulan,
+        waktu: waktuBulan,
+        resource_needs: editingPlan.resource_needs || '',
+        success_indicator: editingPlan.success_indicator || '',
+        priority: urgensiVal,
+        urgensi: urgensiVal,
+        volume: vol,
+        satuan: editingPlan.satuan || 'Paket',
+        harga_satuan: harga,
+        total_biaya: total,
+        unit_id: 'seksi',
+        updated_at: new Date().toISOString()
+      };
+      await upsertSectionPlan(secPlanObj);
+      const next = sectionPlans.filter(p => p.id !== secPlanObj.id);
+      setSectionPlans([...next, secPlanObj]);
     }
+
+    setIsPlanModalOpen(false);
+    setEditingPlan(null);
+
+    // Refresh consolidation
+    const full = await consolidateAnnualReportData(report, allIndikators, allCapaian);
+    setConsolidatedData(full);
+    const secPlans = await getSectionPlans(report.id);
+    setSectionPlans(secPlans);
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Rencana Kerja Berhasil Disimpan',
+      timer: 1200,
+      showConfirmButton: false
+    });
   };
 
-  const handleDeleteSectionPlan = (id: string) => {
+  const handleDeletePlanItem = (planId: string, unitId?: string) => {
     if (!report) return;
     Swal.fire({
-      title: 'Hapus Rencana Kerja Seksi?',
+      title: 'Hapus Rencana Kerja Ini?',
+      text: 'Data usulan kegiatan/barang akan dihapus dari sistem.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#ef4444',
       confirmButtonText: 'Ya, Hapus'
     }).then(async res => {
       if (res.isConfirmed) {
-        await deleteSectionPlan(report.id, id);
-        setSectionPlans(sectionPlans.filter(p => p.id !== id));
+        if (unitId && unitId !== 'seksi') {
+          await deleteUnitPlan(report.id, planId);
+        } else {
+          await deleteSectionPlan(report.id, planId);
+          setSectionPlans(sectionPlans.filter(p => p.id !== planId));
+        }
+        const full = await consolidateAnnualReportData(report, allIndikators, allCapaian);
+        setConsolidatedData(full);
+        Swal.fire({
+          icon: 'success',
+          title: 'Rencana Berhasil Dihapus',
+          timer: 1000,
+          showConfirmButton: false
+        });
       }
     });
   };
+
+  const handleRefreshPlans = async () => {
+    if (!report) return;
+    setIsRefreshingPlans(true);
+    try {
+      const full = await consolidateAnnualReportData(report, allIndikators, allCapaian);
+      setConsolidatedData(full);
+      const secPlans = await getSectionPlans(report.id);
+      setSectionPlans(secPlans);
+      Swal.fire({
+        icon: 'success',
+        title: 'Data Berhasil Dimuat Ulang',
+        text: 'Seluruh usulan rencana kerja unit berhasil disinkronkan.',
+        timer: 1200,
+        showConfirmButton: false
+      });
+    } catch (err) {
+      console.error('Error refreshing plans:', err);
+    } finally {
+      setIsRefreshingPlans(false);
+    }
+  };
+
+  const handleExportPlansCsv = () => {
+    if (!filteredConsolidatedPlans.length) {
+      Swal.fire('Perhatian', 'Tidak ada data rencana kerja untuk diekspor.', 'warning');
+      return;
+    }
+    const headers = ['No', 'Unit Pengusul', 'Nama Kegiatan / Barang', 'Masalah / Latar Belakang', 'Volume', 'Satuan', 'Harga Satuan (Rp)', 'Jumlah (Rp)', 'Waktu', 'Urgensi', 'Indikator Sukses'];
+    const rows = filteredConsolidatedPlans.map((item, idx) => {
+      const vol = Number(item.volume) > 0 ? Number(item.volume) : 1;
+      const harga = Number(item.harga_satuan) || 0;
+      const jml = (item.total_biaya !== undefined && Number(item.total_biaya) > 0) ? Number(item.total_biaya) : vol * harga;
+      return [
+        idx + 1,
+        `"${item.unitName.replace(/"/g, '""')}"`,
+        `"${(item.title || '').replace(/"/g, '""')}"`,
+        `"${(item.problem || '').replace(/"/g, '""')}"`,
+        vol,
+        `"${(item.satuan || 'Paket').replace(/"/g, '""')}"`,
+        harga,
+        jml,
+        `"${(item.waktu || 'Januari').replace(/"/g, '""')}"`,
+        `"${(item.urgensi || 'Sedang').replace(/"/g, '""')}"`,
+        `"${(item.success_indicator || '').replace(/"/g, '""')}"`
+      ];
+    });
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Rekap_Rencana_Kerja_Seluruh_Unit_${selectedYear + 1}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Memoized consolidated plans gathering all unit plans and section plans
+  const allConsolidatedPlans = React.useMemo(() => {
+    const list: {
+      id: string;
+      report_id: string;
+      unit_id: string;
+      unitName: string;
+      title: string;
+      problem: string;
+      volume: number;
+      satuan: string;
+      harga_satuan: number;
+      total_biaya: number;
+      waktu: string;
+      urgensi: 'Tinggi' | 'Sedang' | 'Rendah';
+      success_indicator: string;
+      raw: any;
+      isUnitPlan: boolean;
+    }[] = [];
+
+    ACTIVE_MASTER_UNITS.forEach(u => {
+      const uPlans = (consolidatedData?.unitPlans && consolidatedData.unitPlans[u.id]) || [];
+      uPlans.forEach(p => {
+        const vol = Number(p.volume) > 0 ? Number(p.volume) : 1;
+        const harga = Number(p.harga_satuan) || 0;
+        const total = (p.total_biaya !== undefined && p.total_biaya !== null && Number(p.total_biaya) > 0)
+          ? Number(p.total_biaya)
+          : vol * harga;
+        list.push({
+          id: p.id,
+          report_id: p.report_id,
+          unit_id: u.id,
+          unitName: u.name,
+          title: p.action_plan,
+          problem: p.problem || '-',
+          volume: vol,
+          satuan: p.satuan || 'Paket',
+          harga_satuan: harga,
+          total_biaya: total,
+          waktu: p.waktu || p.target_completion || 'Januari',
+          urgensi: (p.urgensi || p.priority || 'Sedang') as any,
+          success_indicator: p.success_indicator || '-',
+          raw: p,
+          isUnitPlan: true
+        });
+      });
+    });
+
+    // Also include any specific section-level plans
+    sectionPlans.forEach(sp => {
+      if (list.some(item => item.id === sp.id || item.title === sp.strategic_action)) return;
+      const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
+      const harga = Number(sp.harga_satuan) || 0;
+      const total = (sp.total_biaya !== undefined && sp.total_biaya !== null && Number(sp.total_biaya) > 0)
+        ? Number(sp.total_biaya)
+        : vol * harga;
+      list.push({
+        id: sp.id,
+        report_id: sp.report_id,
+        unit_id: sp.unit_id || 'seksi',
+        unitName: sp.unit_id && sp.unit_id !== 'seksi'
+          ? (ACTIVE_MASTER_UNITS.find(u => u.id === sp.unit_id)?.name || sp.unit_id)
+          : 'Seksi Penunjang',
+        title: sp.strategic_action || sp.section_plan_title,
+        problem: sp.problem || '-',
+        volume: vol,
+        satuan: sp.satuan || 'Paket',
+        harga_satuan: harga,
+        total_biaya: total,
+        waktu: sp.waktu || sp.target_completion || 'Januari',
+        urgensi: (sp.urgensi || sp.priority || 'Sedang') as any,
+        success_indicator: sp.success_indicator || '-',
+        raw: sp,
+        isUnitPlan: false
+      });
+    });
+
+    return list;
+  }, [consolidatedData, sectionPlans]);
+
+  const filteredConsolidatedPlans = React.useMemo(() => {
+    return allConsolidatedPlans.filter(item => {
+      if (planFilterUnit !== 'all' && item.unit_id !== planFilterUnit) return false;
+      if (planFilterUrgensi !== 'all' && item.urgensi !== planFilterUrgensi) return false;
+      if (planFilterWaktu !== 'all' && item.waktu !== planFilterWaktu) return false;
+      if (planSearchQuery.trim()) {
+        const q = planSearchQuery.toLowerCase();
+        const matchTitle = item.title.toLowerCase().includes(q);
+        const matchProblem = item.problem.toLowerCase().includes(q);
+        const matchUnit = item.unitName.toLowerCase().includes(q);
+        const matchIndicator = item.success_indicator.toLowerCase().includes(q);
+        if (!matchTitle && !matchProblem && !matchUnit && !matchIndicator) return false;
+      }
+      return true;
+    });
+  }, [allConsolidatedPlans, planFilterUnit, planFilterUrgensi, planFilterWaktu, planSearchQuery]);
+
+  const totalConsolidatedBudget = React.useMemo(() => {
+    return filteredConsolidatedPlans.reduce((acc, cur) => acc + cur.total_biaya, 0);
+  }, [filteredConsolidatedPlans]);
+
+  const highPriorityCount = React.useMemo(() => {
+    return filteredConsolidatedPlans.filter(p => p.urgensi === 'Tinggi').length;
+  }, [filteredConsolidatedPlans]);
+
+  const participatingUnitsCount = React.useMemo(() => {
+    const unitSet = new Set(allConsolidatedPlans.filter(p => p.unit_id !== 'seksi').map(p => p.unit_id));
+    return unitSet.size;
+  }, [allConsolidatedPlans]);
 
   // Cloud Sync Handler
   const handleCloudSync = async () => {
@@ -1162,82 +1385,223 @@ export default function SectionReportDashboard({
       )}
 
       {/* ==================================================================== */}
-      {/* TAB 6: RENCANA KERJA SEKSI (BAB II.6) */}
+      {/* TAB 6: RENCANA KERJA SEKSI & KONSOLIDASI SELURUH UNIT (BAB II.6) */}
       {/* ==================================================================== */}
       {activeTab === 'rencana_seksi' && (
         <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-6">
           <div className="flex flex-wrap items-center justify-between border-b border-slate-100 pb-4 gap-3">
             <div>
               <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
-                <Calendar size={18} className="text-teal-600" /> Rencana Kerja Seksi Penunjang (BAB II.6)
+                <Calendar size={18} className="text-teal-600" /> Rencana Kerja Seksi & Rekapitulasi Rencana Seluruh Unit (BAB II.6)
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                Konsolidasi rencana strategis & usulan kebutuhan barang/kegiatan seksi untuk tahun {selectedYear + 1}.
+                Memuat dan mengonsolidasikan seluruh usulan rencana kerja, pengadaan barang, dan kegiatan yang diinputkan oleh 11 Unit Penunjang untuk tahun {selectedYear + 1}.
               </p>
             </div>
-            <button
-              onClick={() => {
-                setEditingPlan({
-                  section_plan_title: '',
-                  problem: '',
-                  strategic_action: '',
-                  volume: 1,
-                  satuan: 'Paket',
-                  harga_satuan: 0,
-                  total_biaya: 0,
-                  target_completion: 'Januari',
-                  waktu: 'Januari',
-                  priority: 'Sedang',
-                  urgensi: 'Sedang',
-                  success_indicator: ''
-                });
-                setIsPlanModalOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
-            >
-              <Plus size={14} /> Tambah Rencana Strategis Seksi
-            </button>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={handleRefreshPlans}
+                disabled={isRefreshingPlans}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-300 transition-all disabled:opacity-50"
+                title="Muat ulang seluruh data rencana unit langsung dari database"
+              >
+                <RefreshCw size={13} className={isRefreshingPlans ? 'animate-spin text-teal-600' : 'text-slate-600'} />
+                {isRefreshingPlans ? 'Memuat Data...' : 'Sinkronkan Unit'}
+              </button>
+              <button
+                onClick={handleExportPlansCsv}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold rounded-xl shadow-xs transition-all"
+                title="Ekspor rekapitulasi rencana kerja seluruh unit ke format CSV / Excel"
+              >
+                <FileSpreadsheet size={14} className="text-emerald-700" /> Ekspor Excel/CSV
+              </button>
+              <button
+                onClick={() => {
+                  setEditingPlan({
+                    unit_id: planFilterUnit !== 'all' && planFilterUnit !== 'seksi' ? planFilterUnit : 'ipsrs',
+                    strategic_action: '',
+                    action_plan: '',
+                    problem: '',
+                    volume: 1,
+                    satuan: 'Paket',
+                    harga_satuan: 0,
+                    total_biaya: 0,
+                    target_completion: 'Januari',
+                    waktu: 'Januari',
+                    priority: 'Sedang',
+                    urgensi: 'Sedang',
+                    success_indicator: ''
+                  });
+                  setIsPlanModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+              >
+                <Plus size={14} /> Tambah Rencana Kerja
+              </button>
+            </div>
           </div>
 
-          {/* Section Plans Table */}
+          {/* Executive Summary Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="p-4 bg-teal-50/70 border border-teal-200/80 rounded-xl">
+              <span className="text-[11px] font-bold text-teal-700 block uppercase tracking-wider">Total Usulan Kegiatan</span>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-2xl font-black text-teal-950">{filteredConsolidatedPlans.length}</span>
+                <span className="text-[11px] font-semibold text-teal-700">Usulan</span>
+              </div>
+              <span className="text-[10px] text-teal-600 block mt-0.5">
+                {allConsolidatedPlans.length} total dari seluruh seksi & unit
+              </span>
+            </div>
+
+            <div className="p-4 bg-emerald-50/70 border border-emerald-200/80 rounded-xl">
+              <span className="text-[11px] font-bold text-emerald-700 block uppercase tracking-wider">Total Usulan Anggaran</span>
+              <div className="flex items-baseline gap-1 mt-1">
+                <span className="text-base sm:text-lg font-black text-emerald-950">
+                  Rp {totalConsolidatedBudget.toLocaleString('id-ID')}
+                </span>
+              </div>
+              <span className="text-[10px] text-emerald-600 block mt-0.5">
+                Estimasi kebutuhan RKA {selectedYear + 1}
+              </span>
+            </div>
+
+            <div className="p-4 bg-rose-50/70 border border-rose-200/80 rounded-xl">
+              <span className="text-[11px] font-bold text-rose-700 block uppercase tracking-wider">Prioritas Tinggi (Mendesak)</span>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-2xl font-black text-rose-950">{highPriorityCount}</span>
+                <span className="text-[11px] font-semibold text-rose-700">Kegiatan</span>
+              </div>
+              <span className="text-[10px] text-rose-600 block mt-0.5">
+                Tingkat urgensi tinggi lintas unit
+              </span>
+            </div>
+
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+              <span className="text-[11px] font-bold text-slate-600 block uppercase tracking-wider">Partisipasi Unit</span>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-2xl font-black text-slate-800">{participatingUnitsCount} / {ACTIVE_MASTER_UNITS.length}</span>
+                <span className="text-[11px] font-semibold text-slate-600">Unit</span>
+              </div>
+              <span className="text-[10px] text-slate-500 block mt-0.5">
+                {participatingUnitsCount === ACTIVE_MASTER_UNITS.length ? '100% unit telah mengusulkan' : 'Unit aktif dalam sistem'}
+              </span>
+            </div>
+          </div>
+
+          {/* Filters & Search Controls */}
+          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-1.5">
+                <Filter size={13} className="text-slate-500" />
+                <span className="font-bold text-slate-700">Filter:</span>
+              </div>
+
+              {/* Unit Filter */}
+              <select
+                value={planFilterUnit}
+                onChange={e => setPlanFilterUnit(e.target.value)}
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800 shadow-xs outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="all">Semua Unit ({allConsolidatedPlans.length} Usulan)</option>
+                {ACTIVE_MASTER_UNITS.map(u => {
+                  const cnt = allConsolidatedPlans.filter(p => p.unit_id === u.id).length;
+                  return (
+                    <option key={u.id} value={u.id}>
+                      Unit {u.name} ({cnt})
+                    </option>
+                  );
+                })}
+                <option value="seksi">
+                  Seksi Penunjang ({allConsolidatedPlans.filter(p => p.unit_id === 'seksi').length})
+                </option>
+              </select>
+
+              {/* Urgensi Filter */}
+              <select
+                value={planFilterUrgensi}
+                onChange={e => setPlanFilterUrgensi(e.target.value)}
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800 shadow-xs outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="all">Semua Urgensi</option>
+                <option value="Tinggi">Urgensi Tinggi</option>
+                <option value="Sedang">Urgensi Sedang</option>
+                <option value="Rendah">Urgensi Rendah</option>
+              </select>
+
+              {/* Waktu Filter */}
+              <select
+                value={planFilterWaktu}
+                onChange={e => setPlanFilterWaktu(e.target.value)}
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-800 shadow-xs outline-none focus:ring-1 focus:ring-teal-500"
+              >
+                <option value="all">Semua Waktu Pelaksanaan</option>
+                {[
+                  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+                  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+                  'Semester I', 'Semester II', 'Sepanjang Tahun / Berkala'
+                ].map(m => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative min-w-[220px]">
+              <Search size={13} className="absolute left-2.5 top-2.5 text-slate-400" />
+              <input
+                type="text"
+                value={planSearchQuery}
+                onChange={e => setPlanSearchQuery(e.target.value)}
+                placeholder="Cari kegiatan, masalah, unit..."
+                className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-800 shadow-xs outline-none focus:ring-1 focus:ring-teal-500"
+              />
+            </div>
+          </div>
+
+          {/* Consolidated Unit Plans Table with Green Header */}
           <div className="border border-slate-300 rounded-xl overflow-hidden overflow-x-auto shadow-sm">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-[#96c141] text-slate-950 font-bold border-b border-slate-400">
                 <tr>
-                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center w-10">No</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center w-8">No</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[130px]">Unit Pengusul</th>
                   <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[200px]">Nama Kegiatan/Barang</th>
-                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[180px]">Masalah/Latar Belakang</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[170px]">Masalah/Latar Belakang</th>
                   <th colSpan={4} className="border border-slate-500/50 p-2 text-center bg-[#8cb73b]">Rincian Perhitungan</th>
-                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center min-w-[110px]">Waktu</th>
-                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center min-w-[95px]">Urgensi</th>
-                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[180px]">Indikator Sukses</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center min-w-[105px]">Waktu</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 text-center min-w-[90px]">Urgensi</th>
+                  <th rowSpan={2} className="border border-slate-500/50 p-2.5 min-w-[170px]">Indikator Sukses</th>
                   <th rowSpan={2} className="border border-slate-500/50 p-2 text-center w-20">Aksi</th>
                 </tr>
                 <tr>
-                  <th className="border border-slate-500/50 p-2 text-center w-16 bg-[#96c141]">Volume</th>
-                  <th className="border border-slate-500/50 p-2 text-center w-20 bg-[#96c141]">Satuan</th>
-                  <th className="border border-slate-500/50 p-2 text-right w-32 bg-[#96c141]">Harga Satuan (Rp)</th>
-                  <th className="border border-slate-500/50 p-2 text-right w-36 bg-[#96c141]">Jumlah (Rp)</th>
+                  <th className="border border-slate-500/50 p-2 text-center w-14 bg-[#96c141]">Volume</th>
+                  <th className="border border-slate-500/50 p-2 text-center w-16 bg-[#96c141]">Satuan</th>
+                  <th className="border border-slate-500/50 p-2 text-right w-28 bg-[#96c141]">Harga Satuan (Rp)</th>
+                  <th className="border border-slate-500/50 p-2 text-right w-32 bg-[#96c141]">Jumlah (Rp)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
-                {sectionPlans.length > 0 ? (
-                  sectionPlans.map((sp, idx) => {
-                    const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
-                    const harga = Number(sp.harga_satuan) || 0;
-                    const jumlah = (sp.total_biaya !== undefined && sp.total_biaya !== null && Number(sp.total_biaya) > 0)
-                      ? Number(sp.total_biaya)
-                      : vol * harga;
-                    const waktuText = sp.waktu || sp.target_completion || 'Januari';
-                    const urgensiText = sp.urgensi || sp.priority || 'Sedang';
+                {filteredConsolidatedPlans.length > 0 ? (
+                  filteredConsolidatedPlans.map((item, idx) => {
+                    const vol = Number(item.volume) > 0 ? Number(item.volume) : 1;
+                    const harga = Number(item.harga_satuan) || 0;
+                    const jumlah = item.total_biaya;
+                    const waktuText = item.waktu || 'Januari';
+                    const urgensiText = item.urgensi || 'Sedang';
 
                     return (
-                      <tr key={sp.id} className="hover:bg-slate-50 border-b border-slate-200">
+                      <tr key={item.id} className="hover:bg-slate-50 border-b border-slate-200 transition-colors">
                         <td className="p-2.5 text-center border-r border-slate-200 text-slate-600 font-semibold">{idx + 1}</td>
-                        <td className="p-2.5 font-bold text-slate-900 border-r border-slate-200">{sp.strategic_action || sp.section_plan_title}</td>
-                        <td className="p-2.5 text-slate-700 border-r border-slate-200">{sp.problem || '-'}</td>
+                        <td className="p-2.5 border-r border-slate-200">
+                          <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200 whitespace-nowrap">
+                            {item.unitName}
+                          </span>
+                        </td>
+                        <td className="p-2.5 font-bold text-slate-900 border-r border-slate-200">{item.title}</td>
+                        <td className="p-2.5 text-slate-700 border-r border-slate-200">{item.problem || '-'}</td>
                         <td className="p-2 text-center font-bold text-slate-800 border-r border-slate-200">{vol}</td>
-                        <td className="p-2 text-center text-slate-700 border-r border-slate-200">{sp.satuan || 'Paket'}</td>
+                        <td className="p-2 text-center text-slate-700 border-r border-slate-200">{item.satuan || 'Paket'}</td>
                         <td className="p-2 text-right font-medium text-slate-800 border-r border-slate-200 whitespace-nowrap">
                           {harga > 0 ? `Rp ${harga.toLocaleString('id-ID')}` : '-'}
                         </td>
@@ -1259,22 +1623,38 @@ export default function SectionReportDashboard({
                             {urgensiText}
                           </span>
                         </td>
-                        <td className="p-2.5 text-slate-700 border-r border-slate-200">{sp.success_indicator || '-'}</td>
+                        <td className="p-2.5 text-slate-700 border-r border-slate-200">{item.success_indicator || '-'}</td>
                         <td className="p-2 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => {
-                                setEditingPlan(sp);
+                                setEditingPlan({
+                                  id: item.id,
+                                  report_id: item.report_id,
+                                  unit_id: item.unit_id,
+                                  strategic_action: item.title,
+                                  action_plan: item.title,
+                                  problem: item.problem === '-' ? '' : item.problem,
+                                  volume: item.volume,
+                                  satuan: item.satuan,
+                                  harga_satuan: item.harga_satuan,
+                                  total_biaya: item.total_biaya,
+                                  waktu: item.waktu,
+                                  target_completion: item.waktu,
+                                  urgensi: item.urgensi,
+                                  priority: item.urgensi,
+                                  success_indicator: item.success_indicator === '-' ? '' : item.success_indicator
+                                });
                                 setIsPlanModalOpen(true);
                               }}
-                              className="p-1 text-slate-500 hover:text-teal-600"
+                              className="p-1 text-slate-500 hover:text-teal-600 hover:bg-teal-50 rounded"
                               title="Edit Rencana"
                             >
                               <Edit2 size={13} />
                             </button>
                             <button
-                              onClick={() => handleDeleteSectionPlan(sp.id)}
-                              className="p-1 text-slate-500 hover:text-rose-600"
+                              onClick={() => handleDeletePlanItem(item.id, item.unit_id)}
+                              className="p-1 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded"
                               title="Hapus Rencana"
                             >
                               <Trash2 size={13} />
@@ -1286,58 +1666,26 @@ export default function SectionReportDashboard({
                   })
                 ) : (
                   <tr>
-                    <td colSpan={11} className="p-8 text-center text-slate-400">
-                      Belum ada rencana kerja strategis seksi yang ditambahkan.
+                    <td colSpan={12} className="p-8 text-center text-slate-400">
+                      Tidak ditemukan data rencana kerja yang sesuai dengan filter atau kata kunci pencarian.
                     </td>
                   </tr>
                 )}
               </tbody>
-              {sectionPlans.length > 0 && (
+              {filteredConsolidatedPlans.length > 0 && (
                 <tfoot className="bg-slate-50 font-bold border-t-2 border-slate-300">
                   <tr>
-                    <td colSpan={6} className="p-2.5 text-right font-black text-slate-800 uppercase">
-                      Total Estimasi Anggaran Seksi:
+                    <td colSpan={7} className="p-2.5 text-right font-black text-slate-800 uppercase">
+                      Total Estimasi Anggaran ({filteredConsolidatedPlans.length} Usulan Terfilter):
                     </td>
                     <td className="p-2.5 text-right font-black text-emerald-900 whitespace-nowrap text-xs">
-                      Rp {sectionPlans.reduce((acc, sp) => {
-                        const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
-                        const harga = Number(sp.harga_satuan) || 0;
-                        const j = (sp.total_biaya !== undefined && sp.total_biaya !== null && Number(sp.total_biaya) > 0)
-                          ? Number(sp.total_biaya)
-                          : vol * harga;
-                        return acc + j;
-                      }, 0).toLocaleString('id-ID')}
+                      Rp {totalConsolidatedBudget.toLocaleString('id-ID')}
                     </td>
                     <td colSpan={4}></td>
                   </tr>
                 </tfoot>
               )}
             </table>
-          </div>
-
-          {/* Quick Consolidation helper from unit plans */}
-          <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-            <h4 className="font-bold text-slate-800 text-xs">
-              Rencana Kerja Asli Masing-Masing Unit (Sumber Konsolidasi)
-            </h4>
-            <div className="max-h-48 overflow-y-auto space-y-2 text-xs">
-              {ACTIVE_MASTER_UNITS.map(u => {
-                const list = consolidatedData.unitPlans[u.id] || [];
-                if (list.length === 0) return null;
-                return (
-                  <div key={u.id} className="p-2.5 bg-white rounded-lg border border-slate-200">
-                    <span className="font-bold text-teal-800 block mb-1">{u.name}:</span>
-                    <ul className="list-disc pl-4 space-y-0.5 text-slate-600 text-[11px]">
-                      {list.map(p => (
-                        <li key={p.id}>
-                          <b>{p.action_plan}</b> — Target: {p.target_completion || '-'} (Kebutuhan: {p.resource_needs || '-'})
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
           </div>
         </div>
       )}
@@ -1786,16 +2134,32 @@ export default function SectionReportDashboard({
       {/* Plan Modal (For Tab 6) */}
       {isPlanModalOpen && editingPlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <form onSubmit={handleSaveSectionPlan} className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <form onSubmit={handleSavePlan} className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="border-b pb-2 flex items-center justify-between">
               <h4 className="font-extrabold text-slate-800 text-sm">
-                {editingPlan.id ? 'Edit Rencana Strategis Seksi' : 'Tambah Rencana Strategis Seksi'}
+                {editingPlan.id ? 'Edit Rencana Kerja / Usulan' : 'Tambah Rencana Kerja / Usulan'}
               </h4>
               <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
                 Format Rincian Perhitungan
               </span>
             </div>
             <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">
+                  Unit Pengusul <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={editingPlan.unit_id || 'ipsrs'}
+                  onChange={e => setEditingPlan({ ...editingPlan, unit_id: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-teal-500"
+                >
+                  {ACTIVE_MASTER_UNITS.map(u => (
+                    <option key={u.id} value={u.id}>Unit {u.name}</option>
+                  ))}
+                  <option value="seksi">Seksi Penunjang (Rencana Khusus Seksi)</option>
+                </select>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   Nama Kegiatan / Barang <span className="text-rose-500">*</span>

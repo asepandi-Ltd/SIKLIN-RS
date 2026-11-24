@@ -18,7 +18,7 @@ import {
   convertInchesToTwip
 } from 'docx';
 import { saveAs } from 'file-saver';
-import { AnnualReportFullData } from './annualReportTypes';
+import { AnnualReportFullData, AnnualSectionPlan } from './annualReportTypes';
 import { ACTIVE_MASTER_UNITS } from './units';
 import { Pengaturan } from './store';
 
@@ -206,8 +206,32 @@ export async function generateAnnualReportDocx(data: AnnualReportFullData, penga
     p('Konsolidasi rencana strategis Seksi Penunjang untuk tahun berikutnya:')
   );
 
-  // Section plans table
-  if (data.sectionPlans && data.sectionPlans.length > 0) {
+  // Section plans table (konsolidasi usulan rencana kerja seluruh unit)
+  const effectiveSectionPlans = (data.sectionPlans && data.sectionPlans.length > 0)
+    ? data.sectionPlans
+    : Object.entries(data.unitPlans || {}).flatMap(([uId, plans]) => {
+        const uObj = ACTIVE_MASTER_UNITS.find(u => u.id === uId);
+        const uName = uObj?.name || uId;
+        return (plans || []).map(p => ({
+          id: p.id,
+          report_id: p.report_id,
+          section_plan_title: `[${uName}] ${p.action_plan}`,
+          strategic_action: `[${uName}] ${p.action_plan}`,
+          source_unit_ids: [uId],
+          problem: p.problem || '',
+          volume: p.volume,
+          satuan: p.satuan,
+          harga_satuan: p.harga_satuan,
+          total_biaya: p.total_biaya,
+          waktu: p.waktu,
+          target_completion: p.target_completion,
+          priority: p.priority,
+          urgensi: p.urgensi,
+          success_indicator: p.success_indicator
+        } as AnnualSectionPlan));
+      });
+
+  if (effectiveSectionPlans.length > 0) {
     const planRows = [
       new TableRow({
         children: [
@@ -225,7 +249,7 @@ export async function generateAnnualReportDocx(data: AnnualReportFullData, penga
       })
     ];
 
-    data.sectionPlans.forEach((plan, idx) => {
+    effectiveSectionPlans.forEach((plan, idx) => {
       const vol = Number(plan.volume) > 0 ? Number(plan.volume) : 1;
       const harga = Number(plan.harga_satuan) || 0;
       const jml = (plan.total_biaya !== undefined && plan.total_biaya !== null && Number(plan.total_biaya) > 0) ? Number(plan.total_biaya) : vol * harga;

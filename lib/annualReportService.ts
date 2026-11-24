@@ -806,12 +806,43 @@ export async function consolidateAnnualReportData(
 
   const rawUnitPlans = await getUnitPlans(reportId);
   const unitPlans: Record<string, AnnualUnitPlan[]> = {};
-  ACTIVE_MASTER_UNITS.forEach(u => {
-    unitPlans[u.id] = rawUnitPlans.filter(p => p.unit_id === u.id);
-  });
+  for (const u of ACTIVE_MASTER_UNITS) {
+    let pList = rawUnitPlans.filter(p => p.unit_id === u.id);
+    if (pList.length === 0) {
+      pList = await getUnitPlans(reportId, u.id);
+    }
+    unitPlans[u.id] = pList;
+  }
 
   // 6. Section Plans
-  const sectionPlans = await getSectionPlans(reportId);
+  let sectionPlans = await getSectionPlans(reportId);
+  if (!sectionPlans || sectionPlans.length === 0) {
+    const allPlansFromUnits: AnnualUnitPlan[] = Object.values(unitPlans).flat();
+    sectionPlans = allPlansFromUnits.map(p => {
+      const uObj = ACTIVE_MASTER_UNITS.find(u => u.id === p.unit_id);
+      const uName = uObj?.name || p.unit_id;
+      return {
+        id: `sec-${p.id}`,
+        report_id: reportId,
+        section_plan_title: `[${uName}] ${p.action_plan}`,
+        strategic_action: p.action_plan,
+        problem: p.problem || '',
+        volume: p.volume,
+        satuan: p.satuan,
+        harga_satuan: p.harga_satuan,
+        total_biaya: p.total_biaya,
+        target_completion: p.target_completion,
+        waktu: p.waktu,
+        priority: p.priority,
+        urgensi: p.urgensi,
+        success_indicator: p.success_indicator,
+        source_unit_ids: [p.unit_id],
+        unit_id: p.unit_id,
+        created_at: p.created_at,
+        updated_at: p.updated_at
+      } as AnnualSectionPlan;
+    });
+  }
 
   // 7. Calculate KPI performance for each unit
   const kpiSummaries: Record<string, AnnualKpiSummaryItem[]> = {};

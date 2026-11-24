@@ -88,8 +88,9 @@ export function generateAnnualReportExcel(data: AnnualReportFullData) {
 
   let planIdx = 1;
 
-  // Section plans
-  (data.sectionPlans || []).forEach(sp => {
+  // Section plans (rencana khusus tingkat seksi)
+  const explicitSectionPlans = (data.sectionPlans || []).filter(sp => !sp.unit_id || sp.unit_id === 'seksi');
+  explicitSectionPlans.forEach(sp => {
     const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
     const harga = Number(sp.harga_satuan) || 0;
     const jml = (sp.total_biaya !== undefined && sp.total_biaya !== null && Number(sp.total_biaya) > 0) ? Number(sp.total_biaya) : vol * harga;

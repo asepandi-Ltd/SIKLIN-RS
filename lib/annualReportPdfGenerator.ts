@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { AnnualReportFullData } from './annualReportTypes';
+import { AnnualReportFullData, AnnualSectionPlan } from './annualReportTypes';
 import { ACTIVE_MASTER_UNITS } from './units';
 import { Pengaturan } from './store';
 
@@ -177,11 +177,35 @@ export function generateAnnualReportPdf(data: AnnualReportFullData, pengaturan?:
   doc.text('2.6 Rencana Kerja Strategis Seksi', 15, currentY);
   currentY += 6;
 
-  if (data.sectionPlans && data.sectionPlans.length > 0) {
+  const effectiveSectionPlans = (data.sectionPlans && data.sectionPlans.length > 0)
+    ? data.sectionPlans
+    : Object.entries(data.unitPlans || {}).flatMap(([uId, plans]) => {
+        const uObj = ACTIVE_MASTER_UNITS.find(u => u.id === uId);
+        const uName = uObj?.name || uId;
+        return (plans || []).map(p => ({
+          id: p.id,
+          report_id: p.report_id,
+          section_plan_title: `[${uName}] ${p.action_plan}`,
+          strategic_action: `[${uName}] ${p.action_plan}`,
+          source_unit_ids: [uId],
+          problem: p.problem || '',
+          volume: p.volume,
+          satuan: p.satuan,
+          harga_satuan: p.harga_satuan,
+          total_biaya: p.total_biaya,
+          waktu: p.waktu,
+          target_completion: p.target_completion,
+          priority: p.priority,
+          urgensi: p.urgensi,
+          success_indicator: p.success_indicator
+        } as AnnualSectionPlan));
+      });
+
+  if (effectiveSectionPlans && effectiveSectionPlans.length > 0) {
     autoTable(doc, {
       startY: currentY,
       head: [['No', 'Nama Kegiatan/Barang', 'Masalah/Latar Belakang', 'Vol', 'Satuan', 'Harga (Rp)', 'Jumlah (Rp)', 'Waktu', 'Urgensi', 'Indikator Sukses']],
-      body: data.sectionPlans.map((sp, idx) => {
+      body: effectiveSectionPlans.map((sp, idx) => {
         const vol = Number(sp.volume) > 0 ? Number(sp.volume) : 1;
         const harga = Number(sp.harga_satuan) || 0;
         const jml = (sp.total_biaya !== undefined && sp.total_biaya !== null && Number(sp.total_biaya) > 0) ? Number(sp.total_biaya) : vol * harga;
