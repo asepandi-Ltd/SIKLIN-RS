@@ -176,12 +176,17 @@ export async function getSectionProfile(reportId: string, year = 2026): Promise<
 }
 
 export async function upsertSectionProfile(profile: AnnualSectionProfile): Promise<boolean> {
-  setStored(`sipakar_sec_prof_${profile.report_id}`, profile);
+  const profileToSave: AnnualSectionProfile = {
+    ...profile,
+    id: profile.id || `sec-prof-${profile.report_id}`,
+    updated_at: new Date().toISOString()
+  };
+  setStored(`sipakar_sec_prof_${profile.report_id}`, profileToSave);
   if (await checkAnnualTablesExist()) {
     try {
       const { error } = await supabase
         .from('annual_section_profile')
-        .upsert(profile, { onConflict: 'report_id' });
+        .upsert(profileToSave, { onConflict: 'id' });
       if (error) {
         logDbError('upsertSectionProfile', error);
         return false;
@@ -227,14 +232,17 @@ export async function getOrCreateUnitProfile(reportId: string, unit: MasterUnit)
   const all = await getUnitProfiles(reportId);
   if (all[unit.id]) return all[unit.id];
 
-  const initial = getDefaultUnitProfile(reportId, unit.id);
+  const initial: AnnualUnitProfile = {
+    ...getDefaultUnitProfile(reportId, unit.id),
+    id: `uprof-${reportId}-${unit.id}`
+  };
 
   all[unit.id] = initial;
   setStored(`sipakar_unit_profs_${reportId}`, all);
 
   if (await checkAnnualTablesExist()) {
     try {
-      await supabase.from('annual_unit_profiles').upsert(initial, { onConflict: 'report_id,unit_id' });
+      await supabase.from('annual_unit_profiles').upsert(initial, { onConflict: 'id' });
     } catch (err) {
       logDbError('getOrCreateUnitProfile catch', err);
     }
@@ -244,15 +252,20 @@ export async function getOrCreateUnitProfile(reportId: string, unit: MasterUnit)
 }
 
 export async function upsertUnitProfile(profile: AnnualUnitProfile): Promise<boolean> {
+  const profileToSave: AnnualUnitProfile = {
+    ...profile,
+    id: profile.id || `uprof-${profile.report_id}-${profile.unit_id}`,
+    updated_at: new Date().toISOString()
+  };
   const all = getStored<Record<string, AnnualUnitProfile>>(`sipakar_unit_profs_${profile.report_id}`, {});
-  all[profile.unit_id] = profile;
+  all[profile.unit_id] = profileToSave;
   setStored(`sipakar_unit_profs_${profile.report_id}`, all);
 
   if (await checkAnnualTablesExist()) {
     try {
       const { error } = await supabase
         .from('annual_unit_profiles')
-        .upsert(profile, { onConflict: 'report_id,unit_id' });
+        .upsert(profileToSave, { onConflict: 'id' });
       if (error) {
         logDbError('upsertUnitProfile', error);
         return false;
@@ -714,13 +727,18 @@ export async function getReportSnapshot(reportId: string): Promise<AnnualReportS
 }
 
 export async function upsertReportSnapshot(snapshot: AnnualReportSnapshot): Promise<boolean> {
-  setStored(`sipakar_snap_${snapshot.report_id}`, snapshot);
+  const snapToSave: AnnualReportSnapshot = {
+    ...snapshot,
+    id: snapshot.id || `snap-${snapshot.report_id}`,
+    updated_at: new Date().toISOString()
+  };
+  setStored(`sipakar_snap_${snapshot.report_id}`, snapToSave);
 
   if (await checkAnnualTablesExist()) {
     try {
       const { error } = await supabase
         .from('annual_report_snapshots')
-        .upsert(snapshot, { onConflict: 'report_id' });
+        .upsert(snapToSave, { onConflict: 'id' });
       if (error) {
         logDbError('upsertReportSnapshot error', error);
         return false;

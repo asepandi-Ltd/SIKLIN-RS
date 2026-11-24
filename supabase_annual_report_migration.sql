@@ -67,6 +67,8 @@ CREATE TABLE IF NOT EXISTS public.annual_unit_profiles (
 );
 
 CREATE INDEX IF NOT EXISTS idx_unit_profiles_report_unit ON public.annual_unit_profiles(report_id, unit_id);
+ALTER TABLE public.annual_unit_profiles ADD COLUMN IF NOT EXISTS kepala_unit_nama VARCHAR(255);
+ALTER TABLE public.annual_unit_profiles ADD COLUMN IF NOT EXISTS kepala_unit_nip VARCHAR(255);
 
 -- 4. Tabel Komposisi SDM Unit (BAB III B)
 CREATE TABLE IF NOT EXISTS public.annual_unit_staffing (
