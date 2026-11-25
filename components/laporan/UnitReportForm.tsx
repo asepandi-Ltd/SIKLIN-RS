@@ -91,6 +91,7 @@ export default function UnitReportForm({
   const { currentUser, pengaturan, users } = useAppStore();
   const [activeStep, setActiveStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(true);
+  const [savingProfile, setSavingProfile] = useState<boolean>(false);
 
   // Unit Data States
   const [profile, setProfile] = useState<AnnualUnitProfile | null>(null);
@@ -202,17 +203,24 @@ export default function UnitReportForm({
   // Save Profile Handler
   const handleSaveProfile = async () => {
     if (!profile) return;
-    const ok = await upsertUnitProfile(profile);
-    if (ok) {
-      Swal.fire({
-        icon: 'success',
-        title: 'Profil Tersimpan',
-        text: 'Data profil unit berhasil disimpan.',
-        timer: 1200,
-        showConfirmButton: false
-      });
-    } else {
-      Swal.fire('Gagal', 'Terjadi kesalahan saat menyimpan profil unit.', 'error');
+    setSavingProfile(true);
+    try {
+      const ok = await upsertUnitProfile(profile);
+      if (ok) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Profil Tersimpan',
+          text: `Data profil unit ${unit.name} berhasil disimpan.`,
+          timer: 1500,
+          showConfirmButton: false
+        });
+      } else {
+        Swal.fire('Gagal', 'Terjadi kesalahan saat menyimpan profil unit. Periksa koneksi internet Anda.', 'error');
+      }
+    } catch (err: any) {
+      Swal.fire('Gagal', err?.message || 'Terjadi kesalahan saat menyimpan profil unit.', 'error');
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -539,10 +547,13 @@ export default function UnitReportForm({
               </div>
               {!readOnly && (
                 <button
+                  type="button"
                   onClick={handleSaveProfile}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
+                  disabled={savingProfile}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-sm transition-all"
                 >
-                  <Save size={14} /> Simpan Profil
+                  <Save size={14} className={savingProfile ? 'animate-spin' : ''} />
+                  {savingProfile ? 'Menyimpan...' : 'Simpan Profil'}
                 </button>
               )}
             </div>

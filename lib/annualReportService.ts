@@ -203,6 +203,34 @@ export async function upsertSectionProfile(profile: AnnualSectionProfile): Promi
 // ==========================================
 // 3. Unit Profiles (Modul 6.1)
 // ==========================================
+export function encodeProfileMeta(otherInfo?: string, kepalaNama?: string, kepalaNip?: string): string {
+  const cleanInfo = (otherInfo || '').replace(/\s*<!--META:\{.*?\}-->/gs, '').trim();
+  const meta: Record<string, string> = {};
+  if (kepalaNama) meta.kepala_unit_nama = kepalaNama;
+  if (kepalaNip) meta.kepala_unit_nip = kepalaNip;
+  if (Object.keys(meta).length === 0) return cleanInfo;
+  return `${cleanInfo} <!--META:${JSON.stringify(meta)}-->`.trim();
+}
+
+export function decodeProfileMeta(raw?: string): { other_information: string; kepala_unit_nama?: string; kepala_unit_nip?: string } {
+  if (!raw) return { other_information: '' };
+  const match = raw.match(/<!--META:(.*?)-->/);
+  if (match) {
+    try {
+      const meta = JSON.parse(match[1]);
+      const cleanInfo = raw.replace(/\s*<!--META:\{.*?\}-->/gs, '').trim();
+      return {
+        other_information: cleanInfo,
+        kepala_unit_nama: meta.kepala_unit_nama,
+        kepala_unit_nip: meta.kepala_unit_nip
+      };
+    } catch {
+      // fallback
+    }
+  }
+  return { other_information: raw };
+}
+
 export async function getUnitProfiles(reportId: string): Promise<Record<string, AnnualUnitProfile>> {
   const result: Record<string, AnnualUnitProfile> = {};
 
@@ -214,7 +242,13 @@ export async function getUnitProfiles(reportId: string): Promise<Record<string, 
         .eq('report_id', reportId);
       if (!error && data) {
         data.forEach(p => {
-          result[p.unit_id] = p;
+          const decoded = decodeProfileMeta(p.other_information);
+          result[p.unit_id] = {
+            ...p,
+            other_information: decoded.other_information,
+            kepala_unit_nama: p.kepala_unit_nama || decoded.kepala_unit_nama || '',
+            kepala_unit_nip: p.kepala_unit_nip || decoded.kepala_unit_nip || ''
+          };
         });
         setStored(`sipakar_unit_profs_${reportId}`, result);
         return result;
@@ -237,17 +271,7 @@ export async function getOrCreateUnitProfile(reportId: string, unit: MasterUnit)
     id: `uprof-${reportId}-${unit.id}`
   };
 
-  all[unit.id] = initial;
-  setStored(`sipakar_unit_profs_${reportId}`, all);
-
-  if (await checkAnnualTablesExist()) {
-    try {
-      await supabase.from('annual_unit_profiles').upsert(initial, { onConflict: 'id' });
-    } catch (err) {
-      logDbError('getOrCreateUnitProfile catch', err);
-    }
-  }
-
+  await upsertUnitProfile(initial);
   return initial;
 }
 
@@ -263,10 +287,38 @@ export async function upsertUnitProfile(profile: AnnualUnitProfile): Promise<boo
 
   if (await checkAnnualTablesExist()) {
     try {
+      // 1. Attempt upsert directly with all fields
       const { error } = await supabase
         .from('annual_unit_profiles')
         .upsert(profileToSave, { onConflict: 'id' });
+
       if (error) {
+        // If error is about missing columns (PGRST204 or column not found in schema cache)
+        if (
+          error.code === 'PGRST204' ||
+          error.message?.includes('kepala_unit_nama') ||
+          error.message?.includes('kepala_unit_nip')
+        ) {
+          const fallbackPayload: any = { ...profileToSave };
+          fallbackPayload.other_information = encodeProfileMeta(
+            profileToSave.other_information,
+            profileToSave.kepala_unit_nama,
+            profileToSave.kepala_unit_nip
+          );
+          delete fallbackPayload.kepala_unit_nama;
+          delete fallbackPayload.kepala_unit_nip;
+
+          const { error: fallbackErr } = await supabase
+            .from('annual_unit_profiles')
+            .upsert(fallbackPayload, { onConflict: 'id' });
+
+          if (fallbackErr) {
+            logDbError('upsertUnitProfile fallback', fallbackErr);
+            return false;
+          }
+          return true;
+        }
+
         logDbError('upsertUnitProfile', error);
         return false;
       }
@@ -1049,7 +1101,15 @@ export async function pullAllCloudDataToLocal(reportId = 'rep-2026'): Promise<{ 
     const { data: uProfs } = await supabase.from('annual_unit_profiles').select('*').eq('report_id', reportId);
     if (uProfs && uProfs.length > 0) {
       const rec: Record<string, AnnualUnitProfile> = {};
-      uProfs.forEach(p => { rec[p.unit_id] = p; });
+      uProfs.forEach(p => {
+        const decoded = decodeProfileMeta(p.other_information);
+        rec[p.unit_id] = {
+          ...p,
+          other_information: decoded.other_information,
+          kepala_unit_nama: p.kepala_unit_nama || decoded.kepala_unit_nama || '',
+          kepala_unit_nip: p.kepala_unit_nip || decoded.kepala_unit_nip || ''
+        };
+      });
       setStored(`sipakar_unit_profs_${reportId}`, rec);
     }
 
@@ -1105,7 +1165,9 @@ export async function pushAllLocalDataToCloud(reportId = 'rep-2026'): Promise<{ 
     const localUnitProfs = getStored<Record<string, AnnualUnitProfile>>(`sipakar_unit_profs_${reportId}`, {});
     const unitProfValues = Object.values(localUnitProfs);
     if (unitProfValues.length > 0) {
-      await supabase.from('annual_unit_profiles').upsert(unitProfValues);
+      for (const p of unitProfValues) {
+        await upsertUnitProfile(p);
+      }
       totalPushed += unitProfValues.length;
     }
 
