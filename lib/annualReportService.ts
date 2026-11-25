@@ -204,7 +204,7 @@ export async function upsertSectionProfile(profile: AnnualSectionProfile): Promi
 // 3. Unit Profiles (Modul 6.1)
 // ==========================================
 export function encodeProfileMeta(otherInfo?: string, kepalaNama?: string, kepalaNip?: string): string {
-  const cleanInfo = (otherInfo || '').replace(/\s*<!--META:\{.*?\}-->/gs, '').trim();
+  const cleanInfo = (otherInfo || '').replace(/\s*<!--META:\{[\s\S]*?\}-->/g, '').trim();
   const meta: Record<string, string> = {};
   if (kepalaNama) meta.kepala_unit_nama = kepalaNama;
   if (kepalaNip) meta.kepala_unit_nip = kepalaNip;
@@ -214,11 +214,11 @@ export function encodeProfileMeta(otherInfo?: string, kepalaNama?: string, kepal
 
 export function decodeProfileMeta(raw?: string): { other_information: string; kepala_unit_nama?: string; kepala_unit_nip?: string } {
   if (!raw) return { other_information: '' };
-  const match = raw.match(/<!--META:(.*?)-->/);
+  const match = raw.match(/<!--META:([\s\S]*?)-->/);
   if (match) {
     try {
       const meta = JSON.parse(match[1]);
-      const cleanInfo = raw.replace(/\s*<!--META:\{.*?\}-->/gs, '').trim();
+      const cleanInfo = raw.replace(/\s*<!--META:\{[\s\S]*?\}-->/g, '').trim();
       return {
         other_information: cleanInfo,
         kepala_unit_nama: meta.kepala_unit_nama,
